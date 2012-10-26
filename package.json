@@ -1,0 +1,24 @@
+{
+  "author": "Matt McKegg <matt@wetsand.co.nz> (http://twitter.com/MattMcKegg)",
+  "name": "realtime-templates",
+  "description": "...",
+  "version": "0.0.0",
+  "homepage": "http://github.com/mmckegg/realtime-templates",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/mmckegg/realtime-templates.git"
+  },
+  "main": "realtime-templates.node",
+  "browserify": "realtime-templates.browser",
+  "scripts": {
+    "test": "tap test/*.js"
+  },
+  "dependencies": {
+    "sax": "*"
+  },
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "engines": {
+    "node": "*"
+  }
+}

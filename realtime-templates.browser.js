@@ -1,0 +1,1 @@
+exports.bind = require('./browser/bind_dom')
