@@ -56,8 +56,8 @@ module.exports = function(rawView){
     if (element[1]._bind){
       setAdd(stack.get('template').bindings, element[1]._bind)
     }
-    if (element[1]._filter){
-      setAddAll(stack.get('template').bindings, Object.keys(element[1]._filter))
+    if (element[1]._filters){
+      setAddAll(stack.get('template').bindings, Object.keys(element[1]._filters))
     }
     Object.keys(node.attributes).forEach(function(key){
       if (key.slice(0,7) === 't:bind:'){

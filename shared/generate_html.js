@@ -25,6 +25,19 @@ module.exports.generateElement = function(element, entityHandler){
       // standard element
       if (isSelfClosing(element[0])){
         result += openTag(element[0], element[1], true)
+      } else if (element[0] === 'script'){
+        result += openTag(element[0], element[1])
+        if (element[2]){
+          element[2].forEach(function(e){
+            if (typeof e === 'string'){
+              result += e
+            } else {
+              result += module.exports.generateElement(e, entityHandler) // recursively render all elements
+            }
+          })
+        }
+        result += closeTag(element[0])
+        
       } else {
         result += openTag(element[0], element[1])
         if (element[2]){

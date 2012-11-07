@@ -1,10 +1,12 @@
 var generateNodes = require('./generate_nodes')
   , updateAttributes = require('./update_attributes')
 
-module.exports = function(rootNode, newElement, options){
+module.exports = function(rootNode, newElements, options){
   // options: templateHandler, behaviorHandler
   //var walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_ELEMENT, null, null)
   var nodeStack = []
+  
+  rootNode = rootNode || document
   var currentNode = rootNode
   
   function removeNode(node){
@@ -12,6 +14,13 @@ module.exports = function(rootNode, newElement, options){
       options.removeHandler(node)
     }
     node.parentNode.removeChild(node)
+  }
+  
+  function updateElements(elements){
+    elements.forEach(function(e){
+      updateElement(e)
+      stepForward()
+    })
   }
     
   function updateElement(element){
@@ -32,10 +41,7 @@ module.exports = function(rootNode, newElement, options){
       if (!movement.generated){        
         updateAttributes(currentNode, element[1])
         stepIn()
-        element[2].forEach(function(e){
-          updateElement(e)
-          stepForward()
-        })
+        updateElements(element[2])
         stepOut()
       }
 
@@ -182,8 +188,14 @@ module.exports = function(rootNode, newElement, options){
     }
     
   }
-
-  updateElement(newElement)
+  
+  //TODO: find a way to handle this automatically
+  if (options.isEmbedded){
+    updateElement(newElements[0])
+  } else {
+    currentNode = rootNode.firstChild
+    updateElements(newElements)
+  }
   
 }
 

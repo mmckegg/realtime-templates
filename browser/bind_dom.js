@@ -3,6 +3,7 @@ var EventEmitter = require('events').EventEmitter
   , renderTemplate = require('../shared/render_template')
   , refreshDom = require('./refresh_dom')
   , walkDom = require('./walk_dom')
+  , checkNodePosition = require('./check_node_position')
 
 module.exports = function(view, datasource, options){
   // options: rootElement, formatters, behaviors
@@ -37,6 +38,7 @@ module.exports = function(view, datasource, options){
     
     if (changeInfo.action === 'remove'){
       removeSourceElements({collection: changeInfo.collection, item: object})
+      refreshNodes(changeInfo.collection.$elements)
     }
   })
   
@@ -100,32 +102,11 @@ module.exports = function(view, datasource, options){
     }
   }
   
-  function checkNodePosition(object, changeInfo){
-    if (changeInfo.before && object.$elements){
-      
-      // check to see if should insert at end
-      var beforeElementList = (changeInfo.before === 'end') ? changeInfo.collection.$placeholderElements : changeInfo.before.$elements
-      
-      if (beforeElementList){
-        object.$elements.forEach(function(element){
-          // find the correct insert point for the current element
-          beforeElementList.some(function(beforeElement){
-            if (element.template === beforeElement.template && element.parentNode === beforeElement.parentNode){
-              if (element.nextSibling !== beforeElement){
-                beforeElement.parentNode.insertBefore(element, beforeElement)
-                return true
-              }
-            }
-          })
-
-        })
-      }
-
-    }
-  }
-  
   function remove(element){
     // hooks for animation
+    element.removeAttribute('data-tx')
+    element.removeAttribute('data-ti')
+    
     var waiting = false
     var timer = null
     function doIt(){
@@ -206,16 +187,17 @@ module.exports = function(view, datasource, options){
             object = object.value
           }
 
-          var newElement = renderTemplate(node.template, object, {
+          var newElements = renderTemplate(node.template, object, {
             datasource: binder.datasource, 
             formatters: binder.formatters, 
             view: binder.view,
             ti: node.getAttribute('data-ti'),
             includeBindingMetadata: true
-          })[0]
+          })
 
 
-          refreshDom(node, newElement, {
+          refreshDom(node, newElements, {
+            isEmbedded: !node.template._isView,
             behaviorHandler: function(n){
               bindBehavior(n, object, binder)
             },
@@ -292,17 +274,11 @@ function bindTemplatePlaceholder(entity, element, binder){
 
 function setUpBindings(binder){
   
-  // bind root node to context
-  addBindingMetadata({
-    element: binder.rootElement, 
-    item: binder.datasource.data,
-    template: binder.view,
-    isSource: true
-  })
+  // bind root node to context  
+  bindNode(binder.rootElement, binder.datasource.data, null, binder.view, binder.view, binder)
+  
   
   walkDom(binder.rootElement, function(node, state){
-    var currentView = state.get('state')
-    
     if (isTemplate(node)){
       // find the template and view
       var ti = node.getAttribute('data-ti').split(':')
@@ -397,13 +373,16 @@ function bindNode(node, source, collection, template, view, binder){
 
   template.bindings.forEach(function(binding){
     // only bind if is not a local query
-    if (binding.lastIndexOf('.') < 0){
+    
+    if (~binding.indexOf(':') || binding.lastIndexOf('.') != 0){
       var result = binder.datasource.query(binding, source)
       result.references.forEach(function(reference){
-        addBindingMetadata({
-          element: node,
-          item: reference
-        })
+        if (reference != source){
+          addBindingMetadata({
+            element: node,
+            item: reference
+          })
+        }
       })
       
     }
