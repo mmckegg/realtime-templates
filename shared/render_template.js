@@ -7,7 +7,6 @@ module.exports = function(template, context, options){
   var result = []
   var formatters = options.formatters || {}
   var datasource = options && options.datasource || {}
-  var bindingOptions = {datasource: datasource, context: context, formatters: formatters}
   var parent = options && options.parent
   
   var bindingOptions = {datasource: datasource, context: context, formatters: formatters, parent: parent}
@@ -142,13 +141,13 @@ function appendPlaceholderElements(placeholder, elements){
   })
 }
 
-function queryFilter(filter, context, datasource){
+function queryFilter(filter, options){
   var object = {}
   Object.keys(filter).forEach(function(key){
     if (key.lastIndexOf('.') === 0 && key.indexOf(':') === -1){
       object[key] = context[key.slice(1)] // optimisation ... if standard key, skip the query
     } else {      
-      object[key] = datasource.query(key, context).value // or else query to get result
+      object[key] = options.datasource.get(key, options.context, {parent: options.parent}) // or else query to get result
     }
   })
   return checkFilter(object, filter)
