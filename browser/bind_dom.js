@@ -40,18 +40,18 @@ module.exports = function(view, datasource, options){
       removeSourceElements({collection: changeInfo.collection, item: object})
       refreshNodes(changeInfo.collection.$elements)
     }
+
   })
   
   setUpBindings(binder)
 
 
   function removeSourceElements(x){
-    if (x.item.$elements){
+    if (x.item && x.item.$elements){
       var itemsToRemove = x.item.$elements.filter(function(element){
-        return element.source === x.item
+        return element.source === x.item && x.collection === element.collection
       })
       if (itemsToRemove.length > 0){
-        refreshNodes(x.collection.$elements)
         itemsToRemove.forEach(remove)
       }
     }
@@ -72,7 +72,6 @@ module.exports = function(view, datasource, options){
             // remove nodes in wrong location
             if (element.template === placeholder.template && element.parentNode === placeholder.parentNode){
               remove(element)
-              console.log("Removed element", placeholder, element)
               return true
             }
             
@@ -85,7 +84,6 @@ module.exports = function(view, datasource, options){
             unhandledPlaceholders.some(function(placeholder, i){
               if (element.template === placeholder.template && element.parentNode === placeholder.parentNode){
                 unhandledPlaceholders.splice(i, 1)
-                console.log("Object already existing in destination collection. Moved manually", placeholder, element)
                 return true
               }
             })
@@ -96,7 +94,6 @@ module.exports = function(view, datasource, options){
       unhandledPlaceholders.forEach(function(placeholder, pi){
         // append elements to correct locations
         appendObjectToPlaceholder(object, changeInfo.collection, placeholder)
-        console.log("Generated new element", placeholder)
       })
       
     }
@@ -265,6 +262,14 @@ function bindTemplatePlaceholder(entity, element, binder){
   var currentView = binder.view.views[entity.template[0]] || binder.view
   var template = currentView.templates[entity.template[1]]
   var source = binder.datasource.get(template.query, entity._context, {force: []})
+  
+  if (element.source){
+    if (element.source !== source){
+      unbind(element, binder)
+    } else {
+      return
+    }
+  }
   
   element.parentObject = entity._context
   

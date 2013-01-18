@@ -4,6 +4,12 @@ var generateNodes = require('./generate_nodes')
 module.exports = function(rootNode, newElements, options){
   // options: templateHandler, behaviorHandler
   //var walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_ELEMENT, null, null)
+  
+  options = options || {}
+  
+  var templateHandler = options.templateHandler
+  options.templateHandler = null
+  
   var nodeStack = []
   
   rootNode = rootNode || document
@@ -52,10 +58,11 @@ module.exports = function(rootNode, newElements, options){
         }
       }
     } else if (elementType === 'template'){
-      if (movement.generated){
-        console.log("TODO: Need to render templates here", movement)
-        //TODO: render these templates now (since we don't have them)
-      }
+      //if (movement.generated){
+      //  console.log("TODO: Need to render templates here", movement)
+      //  //TODO: render these templates now (since we don't have them)
+      //}
+      templateHandler&&templateHandler(element, currentNode, movement.generated)
     }
     
   }
@@ -165,14 +172,11 @@ module.exports = function(rootNode, newElements, options){
       }
       
     } else {
-      if (!pos.getAttribute || !pos.getAttribute('data-tx') || !txComp(searchingFor, pos.getAttribute('data-tx'))){
-        
-        // node was found ... we're done!
-        currentNode = pos
-        return {node: currentNode, skippedNodes: skipped}
-        
+      if (isSameType(pos, element) && (!pos.getAttribute || !pos.getAttribute('data-tx') || !txComp(searchingFor, pos.getAttribute('data-tx')))){
+          // node was found ... we're done!
+          currentNode = pos
+          return {node: pos, skippedNodes: skipped}
       } else {
-        
         // node was missing, insert at this point
         var newNode = generateNodes.generate(element, options)
         var parentNode = nodeStack[nodeStack.length-1]
@@ -183,7 +187,6 @@ module.exports = function(rootNode, newElements, options){
         } else {
           return false
         }
-        
       }
     }
     
@@ -197,6 +200,20 @@ module.exports = function(rootNode, newElements, options){
     updateElements(newElements)
   }
   
+}
+
+function isSameType(node, element){
+  if (Array.isArray(element)){
+    
+    // if behavior has changed, we'll just trash it and regen as 
+    // there could be issues with events still bound
+    
+    return node.nodeType === 1 && node.nodeName === element[0].toUpperCase() && node.getAttribute('data-behavior') == element[1]['data-behavior']
+  } else if (element.hasOwnProperty('text')){
+    return node.nodeType === 3
+  } else {
+    return true
+  }
 }
 
 function isNextElementTooFar(current, tx){

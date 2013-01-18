@@ -11,10 +11,18 @@ module.exports = function(object, changeInfo){
   if (changeInfo.after){
     // check to see if should insert at start
     if (changeInfo.after === 'start'){
-      return insertBefore(object, changeInfo.collection[0].$elements)
+      return insertBefore(object, actualFirstItem(changeInfo.collection, object).$elements)
     } else {
       return insertAfter(object, changeInfo.after.$elements)
     }
+  }
+}
+
+function actualFirstItem(collection, object){
+  if (collection[0] === object && collection[1]){
+    return collection[1]
+  } else {
+    return collection[0]
   }
 }
 
