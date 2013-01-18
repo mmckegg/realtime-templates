@@ -284,7 +284,7 @@ function getElementType(element){
   if (Array.isArray(element)){
     return 'element'
   } else {
-    if (element.text){
+    if (element.hasOwnProperty('text')){
       return 'text'
     } else if (element.template){
       return 'template'

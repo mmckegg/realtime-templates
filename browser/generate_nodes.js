@@ -53,8 +53,8 @@ self.generate = function(element, options){
   } else if (element instanceof Object){
     // entity: e.g. Template
     
-    if (element.text){
-      return document.createTextNode(element.text.toString())
+    if (element.hasOwnProperty('text')){
+      return document.createTextNode(element.text || '')
     } 
     if (element.comment){
       return document.createComment(element.comment.toString())
