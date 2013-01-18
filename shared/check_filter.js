@@ -22,6 +22,8 @@ module.exports = function(source, filter, options){
   
   if (filter && filter.$present && source){
     return true
+  } else if (filter && filter.$present === false && !source){
+    return true
   } else if (filter === null){
     return true
   } else if (filter == null/*undefined test*/){
@@ -84,27 +86,50 @@ module.exports = function(source, filter, options){
 }
 
 function matchKeys(source, filter, options){
+  var result = false
   
-  if (options.match === 'filter'){
-    return Object.keys(filter).filter(isNotMeta).every(function(key){
-      return module.exports(source[key], filter[key])
-    })
-  } else if (options.match === 'source'){
-    return Object.keys(source).filter(isNotMeta).every(function(key){
-      var res = module.exports(source[key], filter[key])
-      if (filter.$optional && ~filter.$optional.indexOf(key)){
-        return res
-      } else if (res !== 'undefined'){
-        return res
-      }
+  if (filter.$matchAny){
+    return filter.$matchAny.some(function(innerFilter){
+      var combinedFilter = mergeClone(filter, innerFilter)
+      delete combinedFilter.$matchAny
+      return matchKeys(source, combinedFilter, options)
     })
   } else {
-    return Object.keys(source).filter(isNotMeta).every(function(key){
-      return module.exports(source[key], filter[key])
-    })
+    if (options.match === 'filter'){
+      return Object.keys(filter).filter(isNotMeta).every(function(key){
+        return module.exports(source[key], filter[key])
+      })
+    } else if (options.match === 'source'){
+      return Object.keys(source).filter(isNotMeta).every(function(key){
+        var res = module.exports(source[key], filter[key])
+        if (filter.$optional && ~filter.$optional.indexOf(key)){
+          return res
+        } else if (res !== 'undefined'){
+          return res
+        }
+      })
+    } else {
+      return Object.keys(source).filter(isNotMeta).every(function(key){
+        return module.exports(source[key], filter[key])
+      })
+    }
   }
+
 }
 
 function isNotMeta(key){
   return (key.charAt(0) !== '$')
+}
+
+function mergeClone(){
+  var result = {}
+  for (var i=0;i<arguments.length;i++){
+    var obj = arguments[i]
+    if (obj){
+      Object.keys(obj).forEach(function(key){
+        result[key] = obj[key]
+      })
+    }
+  }
+  return result
 }

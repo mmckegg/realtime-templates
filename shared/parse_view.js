@@ -188,13 +188,13 @@ function createElement(node, options){
   // data if filter
   if (node.attributes['t:if']){    
     element[1]['_filters'] = element[1]['_filters'] || {}
-    element[1]['_filters'][node.attributes['t:if']] = true
+    element[1]['_filters'][node.attributes['t:if']] = {$present: true}
   }
   
   // data unless filter
   if (node.attributes['t:unless']){    
     element[1]['_filters'] = element[1]['_filters'] || {}
-    element[1]['_filters'][node.attributes['t:unless']] = false
+    element[1]['_filters'][node.attributes['t:unless']] = {$present: false}
   }
   
   
