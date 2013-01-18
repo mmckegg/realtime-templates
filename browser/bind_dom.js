@@ -335,9 +335,17 @@ function setUpBindings(binder){
 }
 
 function bindBehavior(node, source, binder){
-  var behaviorName = node.getAttribute('data-behavior')
-  if (behaviorName && binder.behaviors[behaviorName]){
-    binder.behaviors[behaviorName](node, {object: source, datasource: binder.datasource})
+  var behaviorNames = node.getAttribute('data-behavior')
+  if (behaviorNames){
+    behaviorNames.split(' ').forEach(function(behaviorName){
+      if (binder.behaviors[behaviorName]){
+        var behaviorCallback = binder.behaviors[behaviorName](node, {object: source, datasource: binder.datasource})
+        if (behaviorCallback){
+          node.behaviors = node.behaviors || []
+          node.behaviors.push(behaviorCallback)
+        }
+      }
+    })
   }
 }
 
