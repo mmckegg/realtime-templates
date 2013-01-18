@@ -49,6 +49,14 @@ module.exports = function(rootNode, newElements, options){
         stepIn()
         updateElements(element[2])
         stepOut()
+        
+        if (currentNode.behaviors){
+          currentNode.behaviors.forEach(function(behavior){
+            if (behavior.onRefresh){
+              behavior.onRefresh(currentNode)
+            }
+          })
+        }
       }
 
     } else if (elementType === 'text'){
