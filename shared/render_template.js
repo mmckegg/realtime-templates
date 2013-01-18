@@ -189,7 +189,7 @@ function bindElement(templateElement, destination, options){
   var attributes = templateElement[1]
   var value = options.datasource.get(attributes._bind, options.context, {parent: options.parent})
   if (attributes._format && options.formatters[attributes._format]){ // use a formatter if specified
-    var res = options.formatters[attributes._format](value)
+    var res = options.formatters[attributes._format](value, options)
     if (res){
       assignTx(res)
       res.forEach(function(element){
