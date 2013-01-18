@@ -8,6 +8,9 @@ module.exports = function(template, context, options){
   var formatters = options.formatters || {}
   var datasource = options && options.datasource || {}
   var bindingOptions = {datasource: datasource, context: context, formatters: formatters}
+  var parent = options && options.parent
+  
+  var bindingOptions = {datasource: datasource, context: context, formatters: formatters, parent: parent}
   
   template.elements.forEach(function(x, i){
     var meta = {}
@@ -39,7 +42,7 @@ module.exports = function(template, context, options){
         , subElements = element[2] || []
       
       // if it has filters, make sure they all pass
-      if (!attributes._filters || queryFilter(attributes._filters, context, datasource)){
+      if (!attributes._filters || queryFilter(attributes._filters, bindingOptions)){
         
         var newElement = [element[0], {}, []]
         bindAttributes(attributes, newElement, bindingOptions)
@@ -161,7 +164,7 @@ function bindAttributes(attributes, destination, options){
   })
   
   attributes._bindAttributes && Object.keys(attributes._bindAttributes).forEach(function(key){
-    var value = options.datasource.get(attributes._bindAttributes[key], options.context)
+    var value = options.datasource.get(attributes._bindAttributes[key], options.context, {parent: options.parent})
     if (value != null){
       destination[1][key] = value.toString()
     }
@@ -185,7 +188,7 @@ function assignTx(elements){
 
 function bindElement(templateElement, destination, options){
   var attributes = templateElement[1]
-  var value = options.datasource.query(attributes._bind, options.context).value
+  var value = options.datasource.get(attributes._bind, options.context, {parent: options.parent})
   if (attributes._format && options.formatters[attributes._format]){ // use a formatter if specified
     var res = options.formatters[attributes._format](value)
     if (res){

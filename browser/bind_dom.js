@@ -126,6 +126,7 @@ module.exports = function(view, datasource, options){
     var i = collection.indexOf(object)
 
     var elements = renderTemplate(placeholder.template, object, {
+      parent: placeholder.parentObject,
       datasource: binder.datasource, 
       formatters: binder.formatters, 
       view: binder.view, 
@@ -189,6 +190,7 @@ module.exports = function(view, datasource, options){
 
           var newElements = renderTemplate(node.template, object, {
             datasource: binder.datasource, 
+            parent: node.parentObject,
             formatters: binder.formatters, 
             view: binder.view,
             ti: node.getAttribute('data-ti'),
@@ -201,9 +203,11 @@ module.exports = function(view, datasource, options){
             behaviorHandler: function(n){
               bindBehavior(n, object, binder)
             },
-            templateHandler: function(entity, element){
+            templateHandler: function(entity, element, appended){
               bindTemplatePlaceholder(entity, element, binder)
-              appendedTemplateNodes.push(element)
+              if (appended){
+                appendedTemplateNodes.push(element)
+              }
             },
             removeHandler: function(element){
               unbind(element, binder)
@@ -262,6 +266,8 @@ function bindTemplatePlaceholder(entity, element, binder){
   var template = currentView.templates[entity.template[1]]
   var source = binder.datasource.get(template.query, entity._context, {force: []})
   
+  element.parentObject = entity._context
+  
   addBindingMetadata({
     element: element, 
     item: source,
@@ -291,6 +297,8 @@ function setUpBindings(binder){
       // get the source, and force it if it doesn't exit
       var collection = binder.datasource.query(currentTemplate.query, state.get('source'), {force: []}).value 
       var currentSource = collection[parseInt(ti[2], 10)]
+      
+      node.parentObject = state.get('source')
       
       if (currentSource){
         bindNode(node, currentSource, collection, currentTemplate, currentView, binder)

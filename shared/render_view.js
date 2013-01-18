@@ -30,6 +30,7 @@ module.exports = function(view, datasource, options){
         collection.forEach(function(item, i){
           renderTemplate(template, item, {
             datasource: datasource, 
+            parent: params.context,
             formatters: options.formatters, 
             includeBindingMetadata: options.includeBindingMetadata,
             view: view, 
