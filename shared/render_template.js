@@ -145,7 +145,7 @@ function queryFilter(filter, options){
   var object = {}
   Object.keys(filter).forEach(function(key){
     if (key.lastIndexOf('.') === 0 && key.indexOf(':') === -1){
-      object[key] = context[key.slice(1)] // optimisation ... if standard key, skip the query
+      object[key] = options.context[key.slice(1)] // optimisation ... if standard key, skip the query
     } else {      
       object[key] = options.datasource.get(key, options.context, {parent: options.parent}) // or else query to get result
     }
