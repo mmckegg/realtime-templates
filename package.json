@@ -20,5 +20,19 @@
   "optionalDependencies": {},
   "engines": {
     "node": "*"
-  }
+  },
+  "keywords": [
+    "data binding",
+    "view",
+    "realtime",
+    "templates",
+    "templating",
+    "html",
+    "pure",
+    "json",
+    "query",
+    "offline",
+    "filter",
+    "change stream"
+  ]
 }

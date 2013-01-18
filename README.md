@@ -13,9 +13,11 @@ A more recent concept is to do all of the rendering in the browser itself (popul
 
 Over time fully client side rendering will improve, but this module attempts to get the best of both worlds right now.
 
-## Work in progress
+## Installation
 
-None of this stuff is up on NPM yet...
+```shell
+$ npm install realtime-templates
+```
 
 ## The Views
 
@@ -113,7 +115,7 @@ See [JSON Context](http://github.com/mmckegg/json-context) for more information 
 
 ### Attribute: `t:bind` 
 
-Anytime the system hits a `t:bind` attribute while rendering the view, it sends the value of this attribute to the datasource `query` function. The return value is inserted as text inside the element. 
+Any time the system hits a `t:bind` attribute while rendering the view, it sends the value of this attribute to the datasource `query` function. The return value is inserted as text inside the element. 
 
 ### Attribute: `t:bind:<attribute-name>` 
 
@@ -132,8 +134,6 @@ Which would output:
 ### Attribute: `t:if`
 
 The element will only be rendered if the datasource **returns `true`** when queried with the attribute value.
-
-Note that the datasource must provide the exact value `true` - truthy values (such as non-zero number, string, etc) will not be excepted.
 
 ### Attribute: `t:unless`
 
