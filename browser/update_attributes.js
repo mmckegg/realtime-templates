@@ -46,27 +46,35 @@ function getAttribute(element, key){
 }
 
 function setAttribute(element, key, value){
-  if (key === 'style'){
-    element.style.cssText = value
-  } else {
-    var directAttribute = attributeProperties[key.toLowerCase()]
-    if (directAttribute){
-      element[directAttribute] = value
+  if (canModify(element, key)){
+    if (key === 'style'){
+      element.style.cssText = value
     } else {
-      element.setAttribute(key, value)
+      var directAttribute = attributeProperties[key.toLowerCase()]
+      if (directAttribute){
+        element[directAttribute] = value
+      } else {
+        element.setAttribute(key, value)
+      }
     }
   }
 }
 
 function removeAttribute(element, key){
-  if (key === 'style'){
-    element.style.cssText = ''
-  } else {
-    var directAttribute = attributeProperties[key.toLowerCase()]
-    if (directAttribute){
-      element[directAttribute] = ''
+  if (canModify(element, key)){
+    if (key === 'style'){
+      element.style.cssText = ''
     } else {
-      element.removeAttribute(key)
+      var directAttribute = attributeProperties[key.toLowerCase()]
+      if (directAttribute){
+        element[directAttribute] = ''
+      } else {
+        element.removeAttribute(key)
+      }
     }
   }
+}
+
+function canModify(element, key){
+  return !element.preserveAttributes || !~element.preserveAttributes.indexOf(key)
 }

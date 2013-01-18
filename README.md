@@ -440,6 +440,18 @@ If you want to **append** a new object, just push it directly. As long as it has
 
 `data-behaviors` attribute
 
+## Preserving attributeson Realtime Nodes (element.preserveAttributes)
+
+If you would like to add a class (or change any other attribute on a DOM node) at runtime using Javascript code rather than via binding, you'll need to set the `preserveAttributes` option to an **array** containing the attribute names you wish the realtime updating to ignore.
+
+```js
+var element = document.getElementById('someElement')
+element.preserveAttributes = ['style']
+
+slideUp(element, 200) // the animation will now fire correctly, and 
+                      // not get tripped up by attribute reset
+```
+
 ## TODO
 
  - Testing the browser stuff - maybe with testling or something?
