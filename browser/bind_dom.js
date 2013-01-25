@@ -396,7 +396,7 @@ function bindNode(node, source, collection, template, view, binder){
     // only bind if is not a local query
     
     if (~binding.indexOf(':') || binding.lastIndexOf('.') != 0){
-      var result = binder.datasource.query(binding, source)
+      var result = binder.datasource.query(binding, source, {parent: node.parentObject})
       result.references.forEach(function(reference){
         if (reference != source){
           addBindingMetadata({
