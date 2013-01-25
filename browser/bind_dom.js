@@ -136,20 +136,25 @@ module.exports = function(view, datasource, options){
     }
     
     var appendedTemplateNodes = []
+
+    var newNodes = []
     
     generateNodes(elements, {behaviorHandler: behaviorHandler, templateHandler: function(entity, element){
       bindTemplatePlaceholder(entity, element, binder)
       appendedTemplateNodes.push(element)
     }}).forEach(function(node){
+      newNodes.push(node)
       appendNode(node, placeholder)
       bindNode(node, object, collection, placeholder.template, placeholder.view, binder)
     })
     
     appendedTemplateNodes.forEach(function(element){
       element.source.forEach(function(item){
-        append({collection: element.source, item: item})
+        appendObjectToPlaceholder(item, element.source, element)
       })
     })
+
+    return newNodes
   }
   
   function append(toAppend){
@@ -158,7 +163,10 @@ module.exports = function(view, datasource, options){
     
     if (collection.$placeholderElements){    
       collection.$placeholderElements.forEach(function(placeholder){
-        appendObjectToPlaceholder(object, collection, placeholder)
+        appendObjectToPlaceholder(object, collection, placeholder).forEach(function(node){
+          // emit new nodes
+          binder.emit('append', node)
+        })
       })
     }
   }
@@ -166,7 +174,6 @@ module.exports = function(view, datasource, options){
   function appendNode(node, placeholder){
     if (placeholder.parentNode){
       placeholder.parentNode.insertBefore(node, placeholder)
-      binder.emit('append', node)
     }
   }
   
