@@ -126,10 +126,17 @@ module.exports = function(view, datasource, options){
       parent: placeholder.parentObject,
       datasource: binder.datasource, 
       formatters: binder.formatters, 
+      override: placeholder.overrideContext,
       view: binder.view, 
       ti: (placeholder.viewName || '') + ':' + placeholder.template.id + ':' + i,
       includeBindingMetadata: true
     })
+
+    var overrideContext = placeholder.overrideContext
+    if (placeholder.template.contextAs){
+      overrideContext = mergeClone(overrideContext)
+      overrideContext[placeholder.template.contextAs] = object
+    }
 
     function behaviorHandler(n){
       bindBehavior(n, object, binder)
@@ -140,16 +147,18 @@ module.exports = function(view, datasource, options){
     var newNodes = []
     
     generateNodes(elements, {behaviorHandler: behaviorHandler, templateHandler: function(entity, element){
+      element.overrideContext = overrideContext
       bindTemplatePlaceholder(entity, element, binder)
       appendedTemplateNodes.push(element)
     }}).forEach(function(node){
       newNodes.push(node)
+      node.overrideContext = overrideContext
       appendNode(node, placeholder)
       bindNode(node, object, collection, placeholder.template, placeholder.view, binder)
     })
     
     appendedTemplateNodes.forEach(function(element){
-      element.source.forEach(function(item){
+      element.source.forEach && element.source.forEach(function(item){
         appendObjectToPlaceholder(item, element.source, element)
       })
     })
@@ -195,6 +204,7 @@ module.exports = function(view, datasource, options){
           var newElements = renderTemplate(node.template, object, {
             datasource: binder.datasource, 
             parent: node.parentObject,
+            override: node.overrideContext,
             formatters: binder.formatters, 
             view: binder.view,
             ti: node.getAttribute('data-ti'),
@@ -268,7 +278,11 @@ function findElementsInObject(object){
 function bindTemplatePlaceholder(entity, element, binder){
   var currentView = binder.view.views[entity.template[0]] || binder.view
   var template = currentView.templates[entity.template[1]]
-  var source = binder.datasource.get(template.query, entity._context, {force: []})
+
+  var source = binder.datasource.get(template.query, entity._context, {
+    force: [], 
+    override: element.overrideContext
+  })
   
   if (element.source){
     if (element.source !== source){
@@ -293,6 +307,7 @@ function bindTemplatePlaceholder(entity, element, binder){
 function setUpBindings(binder){
   
   // bind root node to context  
+  binder.rootElement.overrideContext = {}
   bindNode(binder.rootElement, binder.datasource.data, null, binder.view, binder.view, binder)
   
   
@@ -307,13 +322,24 @@ function setUpBindings(binder){
       }
 
       // get the source, and force it if it doesn't exit
-      var collection = binder.datasource.query(currentTemplate.query, state.get('source'), {force: []}).value 
+      var collection = binder.datasource.query(currentTemplate.query, state.get('source'), {
+        force: [], 
+        override: state.get('override')
+      }).value
+
       var currentSource = collection[parseInt(ti[2], 10)]
       
       node.parentObject = state.get('source')
-      
+      node.overrideContext = state.get('override')
+
       if (currentSource){
         bindNode(node, currentSource, collection, currentTemplate, currentView, binder)
+      }
+
+      if (currentTemplate.contextAs){
+        var currentOverride = mergeClone(node.overrideContext)
+        currentOverride[currentTemplate.contextAs] = currentSource
+        state.set('override', currentOverride)
       }
       
       state.set('source', currentSource)
@@ -325,8 +351,13 @@ function setUpBindings(binder){
       var view = data[0] && binder.view.views[data[0]] || binder.view
       var template = data[1] && view.templates[data[1]] || view
       
-      var source = binder.datasource.query(template.query, state.get('source'), {force: []}).value 
-      
+      var source = binder.datasource.query(template.query, state.get('source'), {
+        force: [],
+        override: state.get('override')
+      }).value 
+
+      node.overrideContext = state.get('override')
+
       addBindingMetadata({
         element: node, 
         item: source,
@@ -399,11 +430,17 @@ function bindNode(node, source, collection, template, view, binder){
     isSource: true //two way binding
   })
 
+  var currentOverride = node.overrideContext
+  if (template.contextAs){
+    currentOverride = mergeClone(currentOverride)
+    currentOverride[template.contextAs] = source
+  }
+
   template.bindings.forEach(function(binding){
     // only bind if is not a local query
     
     if (~binding.indexOf(':') || binding.lastIndexOf('.') != 0){
-      var result = binder.datasource.query(binding, source, {parent: node.parentObject})
+      var result = binder.datasource.query(binding, source, {parent: node.parentObject, override: currentOverride})
       result.references.forEach(function(reference){
         if (reference != source){
           addBindingMetadata({
@@ -472,4 +509,17 @@ function addSet(a, item){
 }
 function addSetAll(a, items){
   items.forEach(addSet.bind(a))
+}
+
+function mergeClone(){
+  var result = {}
+  for (var i=0;i<arguments.length;i++){
+    var obj = arguments[i]
+    if (obj){
+      Object.keys(obj).forEach(function(key){
+        result[key] = obj[key]
+      })
+    }
+  }
+  return result
 }

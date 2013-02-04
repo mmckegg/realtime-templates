@@ -1,5 +1,7 @@
 var sax = require('sax')
-var stripAttributes = ['t:repeat', 't:bind', 't:when', 't:if', 't:unless', 't:format', 't:by', 't:view', 't:content', 't:context']
+var stripAttributes = [
+  't:repeat', 't:bind', 't:when', 't:if', 't:unless', 't:format', 't:by', 't:view', 't:content', 't:context', 't:as'
+]
 
 module.exports = function(rawView){
   var templateCount = 1
@@ -118,6 +120,7 @@ function elementIsFilter(node){
 function createTemplate(node){
   var template = {
     query: node.attributes['t:repeat'],
+    contextAs: node.attributes['t:as'],
     sub: [],
     bindings: [],
     elements: []

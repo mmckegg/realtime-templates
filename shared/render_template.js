@@ -8,8 +8,14 @@ module.exports = function(template, context, options){
   var formatters = options.formatters || {}
   var datasource = options && options.datasource || {}
   var parent = options && options.parent
+  var override = options && options.override
+
+  if (template.contextAs){
+    override = mergeClone(override)
+    override[template.contextAs] = context
+  }
   
-  var bindingOptions = {datasource: datasource, context: context, formatters: formatters, parent: parent}
+  var bindingOptions = {datasource: datasource, context: context, formatters: formatters, parent: parent, override: override}
   
   template.elements.forEach(function(x, i){
     var meta = {}
@@ -91,7 +97,13 @@ module.exports = function(template, context, options){
       
     } else if (element instanceof Object){ // if it is not an element, pass thru e.g. text elements and templates
       if (options.entityHandler){
-        options.entityHandler(element, elements, {viewRef: currentViewRef, context: context, tx: extraAttributes['data-tx']})
+        options.entityHandler(element, elements, {
+          viewRef: currentViewRef, 
+          context: context, 
+          tx: extraAttributes['data-tx'],
+          parent: parent,
+          override: override
+        })
       }
       if (element.template != null){
         elements.push({template: [(currentViewRef && currentViewRef.name || ''), element.template], _context: context})
@@ -147,7 +159,7 @@ function queryFilter(filter, options){
     if (key.lastIndexOf('.') === 0 && key.indexOf(':') === -1){
       object[key] = options.context[key.slice(1)] // optimisation ... if standard key, skip the query
     } else {      
-      object[key] = options.datasource.get(key, options.context, {parent: options.parent}) // or else query to get result
+      object[key] = options.datasource.get(key, options.context, {parent: options.parent, override: options.override}) // or else query to get result
     }
   })
   return checkFilter(object, filter)
@@ -163,7 +175,7 @@ function bindAttributes(attributes, destination, options){
   })
   
   attributes._bindAttributes && Object.keys(attributes._bindAttributes).forEach(function(key){
-    var value = options.datasource.get(attributes._bindAttributes[key], options.context, {parent: options.parent})
+    var value = options.datasource.get(attributes._bindAttributes[key], options.context, {parent: options.parent, override: options.override})
     if (value != null){
       destination[1][key] = value.toString()
     }
@@ -187,7 +199,7 @@ function assignTx(elements){
 
 function bindElement(templateElement, destination, options){
   var attributes = templateElement[1]
-  var value = options.datasource.get(attributes._bind, options.context, {parent: options.parent})
+  var value = options.datasource.get(attributes._bind, options.context, {parent: options.parent, override: options.override})
   if (attributes._format && options.formatters[attributes._format]){ // use a formatter if specified
     var res = options.formatters[attributes._format](value, options)
     if (res){
@@ -217,5 +229,18 @@ function merge(a,b){
   Object.keys(b).forEach(function(k){
     result[k] = b[k]
   })
+  return result
+}
+
+function mergeClone(){
+  var result = {}
+  for (var i=0;i<arguments.length;i++){
+    var obj = arguments[i]
+    if (obj){
+      Object.keys(obj).forEach(function(key){
+        result[key] = obj[key]
+      })
+    }
+  }
   return result
 }

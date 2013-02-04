@@ -13,6 +13,7 @@ module.exports = function(view, datasource, options){
     datasource: datasource, 
     formatters: options.formatters, 
     view: view, 
+    override: {},
     includeBindingMetadata: options.includeBindingMetadata,
     entityHandler: entityHandler
   })
@@ -25,12 +26,17 @@ module.exports = function(view, datasource, options){
       var currentView = params.viewRef && view.views[params.viewRef.name] || view
       var template = currentView.templates[entity.template]
       
-      var collection = datasource.get(template.query, params.context)
-      if (collection){
+      var collection = datasource.get(template.query, params.context, {
+        override: params.override
+        //TODO: needs parent in here too
+      })
+      
+      if (collection && collection.forEach){
         collection.forEach(function(item, i){
           renderTemplate(template, item, {
             datasource: datasource, 
             parent: params.context,
+            override: params.override,
             formatters: options.formatters, 
             includeBindingMetadata: options.includeBindingMetadata,
             view: view, 
