@@ -1,56 +1,66 @@
 var checkFilter = require('./check_filter')
-module.exports = function(template, context, options){
-  // options: datasource, formatters, view, entityHandler
+module.exports = function(templateContext){
+  // templateContext: source, template, datasource, formatters, view, entityHandler
   var viewRefStack = []
-  var views = options.view.views
   var currentViewRef = null
   var result = []
-  var formatters = options.formatters || {}
-  var datasource = options && options.datasource || {}
-  var parent = options && options.parent
-  var override = options && options.override
 
-  if (template.contextAs){
-    override = mergeClone(override)
-    override[template.contextAs] = context
+  var template = templateContext.template
+  var formatters = templateContext.formatters || {}
+
+  // fallback if no query values supplied
+  if (!templateContext.queryValues){
+    templateContext.queryValues = {}
+    template.bindings.forEach(function(query){
+      templateContext.queryValues[query] = templateContext.datasource.get(query, context)
+    })
   }
-  
-  var bindingOptions = {datasource: datasource, context: context, formatters: formatters, parent: parent, override: override}
+
+  function get(query){
+    if (query === '.'){
+      return templateContext.source
+    } else if (query.lastIndexOf('.') === 0 && !~query.indexOf(':') && !~query.indexOf('|')){
+      return templateContext.source[query.slice(1)] // optimisation ... if standard key, skip the query
+    } else {      
+      return templateContext.queryValues[query]
+    }
+  }
+
+  function format(name, value){
+    if (formatters[name]){
+      return formatters[name](value, templateContext)
+    } else {
+      return []
+    }
+  }
   
   template.elements.forEach(function(x, i){
     var meta = {}
-    if (options.includeBindingMetadata){
+    if (templateContext.includeBindingMetadata){
       meta['data-tx'] = i
-      if (options.ti){
-        meta['data-ti'] = options.ti
+      if (templateContext.index != null){
+        if (templateContext.template.ref == null){
+          throw JSON.stringify(templateContext.template)
+        }
+        meta['data-ti'] = templateContext.template.ref + ':' + templateContext.index
       }
     }
     renderElement(x, result, meta) // options.includeBindingMetadata && {'data-tx': i, 'data-ti': options.ti} || {})
   })
-    
-  function pushViewRef(viewRef){
-    viewRefStack.push(currentViewRef)
-    currentViewRef = viewRef
-  }
-  function popViewRef(){
-    var oldViewRef = currentViewRef
-    currentViewRef = viewRefStack.pop()
-    return oldViewRef
-  }
   
-  function renderElement(element, elements, extraAttributes){
+  function renderElement(templateElement, elements, extraAttributes){
     extraAttributes = extraAttributes || {}
     
-    if (Array.isArray(element)){
+    if (Array.isArray(templateElement)){
       
-      var attributes = element[1]
-        , subElements = element[2] || []
+      var attributes = templateElement[1]
+        , subElements = templateElement[2] || []
       
       // if it has filters, make sure they all pass
-      if (!attributes._filters || queryFilter(attributes._filters, bindingOptions)){
+      if (!attributes._filters || queryFilter(attributes._filters, get)){
         
-        var newElement = [element[0], {}, []]
-        bindAttributes(attributes, newElement, bindingOptions)
+        var newElement = [templateElement[0], {}, []]
+        bindAttributes(attributes, newElement, get)
 
         // add any extra attributes
         Object.keys(extraAttributes).forEach(function(key){
@@ -58,31 +68,21 @@ module.exports = function(template, context, options){
         })
         
         if (attributes._bind){
-          bindElement(element, newElement, bindingOptions)
+          bindElement(templateElement, newElement, get, format)
         } else if (attributes._view){
-          
-          var view = views[attributes._view.name]
-          if (view){
-            pushViewRef(merge(attributes._view, {elements: subElements}))
-            view.elements.forEach(function(x, i){
-              renderElement(x, newElement[2], options.includeBindingMetadata && {'data-tx': i} || {})
-            })
-            popViewRef()
-          }
-          
+          templateContext.entityHandler && templateContext.entityHandler({view: attributes._view, elements: subElements}, newElement[2], templateContext)
         } else if (attributes._content){
-          if (currentViewRef){
-            var viewRef = currentViewRef
-            pushViewRef(viewRefStack[viewRefStack.length-1]) // push previous view as this is where the elements are from
-            viewRef.elements.forEach(function(x, i){
-              renderElement(x, newElement[2], options.includeBindingMetadata && {'data-tx': i} || {})
+          if (templateContext.contentElements){
+            templateContext.contentElements.forEach(function(x, i){
+              renderElement(x, newElement[2], templateContext.includeBindingMetadata && {'data-tx': i} || {})
             })
-            popViewRef()
           }
+
+          templateContext.entityHandler && templateContext.entityHandler({viewContent: true}, elements, templateContext)
         } else {
           // recursively render sub elements
           subElements.forEach(function(x, i){
-            renderElement(x, newElement[2], options.includeBindingMetadata && {'data-tx': i} || {})
+            renderElement(x, newElement[2], templateContext.includeBindingMetadata && {'data-tx': i} || {})
           })
         }
         
@@ -95,25 +95,19 @@ module.exports = function(template, context, options){
         
       }
       
-    } else if (element instanceof Object){ // if it is not an element, pass thru e.g. text elements and templates
-      if (options.entityHandler){
-        options.entityHandler(element, elements, {
-          viewRef: currentViewRef, 
-          context: context, 
-          tx: extraAttributes['data-tx'],
-          parent: parent,
-          override: override
-        })
+    } else if (templateElement instanceof Object){ // if it is not an element, pass thru e.g. text elements and templates
+      if (templateContext.entityHandler){
+        templateContext.entityHandler(templateElement, elements, templateContext)
       }
-      if (element.template != null){
-        elements.push({template: [(currentViewRef && currentViewRef.name || ''), element.template], _context: context})
+      if (templateElement.template != null){
+        elements.push({template: templateElement.template, _context: templateContext.source})
       } else {
-        elements.push(merge(element, {_context: context, _tx: extraAttributes['data-tx']}))
+        elements.push(merge(templateElement, {_context: templateContext.source, _tx: extraAttributes['data-tx']}))
       }
     } else {
       // text node
-      if (!appendText(element, elements)){
-        elements.push({text: element, _context: context, _tx: extraAttributes['data-tx']})
+      if (!appendText(templateElement, elements)){
+        elements.push({text: templateElement, _context: templateContext.source, _tx: extraAttributes['data-tx']})
       }
       
     }
@@ -135,6 +129,10 @@ function appendText(text, elements){
 }
 
 function appendPlaceholderElements(placeholder, elements){
+  elements.push({
+    parentAttributes: placeholder[1]
+  })
+  
   placeholder[2].forEach(function(element){
     if (Array.isArray(element)){
       if (placeholder[1]['data-tx'] != null && element[1]['data-tx'] != null){
@@ -153,19 +151,15 @@ function appendPlaceholderElements(placeholder, elements){
   })
 }
 
-function queryFilter(filter, options){
+function queryFilter(filter, get){
   var object = {}
   Object.keys(filter).forEach(function(key){
-    if (key.lastIndexOf('.') === 0 && key.indexOf(':') === -1){
-      object[key] = options.context[key.slice(1)] // optimisation ... if standard key, skip the query
-    } else {      
-      object[key] = options.datasource.get(key, options.context, {parent: options.parent, override: options.override}) // or else query to get result
-    }
+    object[key] = get(key)
   })
   return checkFilter(object, filter)
 }
 
-function bindAttributes(attributes, destination, options){
+function bindAttributes(attributes, destination, get){
   //TODO: handle bound attributes
   
   Object.keys(attributes).forEach(function(key){
@@ -175,7 +169,7 @@ function bindAttributes(attributes, destination, options){
   })
   
   attributes._bindAttributes && Object.keys(attributes._bindAttributes).forEach(function(key){
-    var value = options.datasource.get(attributes._bindAttributes[key], options.context, {parent: options.parent, override: options.override})
+    var value = get(attributes._bindAttributes[key])
     if (value != null){
       destination[1][key] = value.toString()
     }
@@ -197,11 +191,11 @@ function assignTx(elements){
   })
 }
 
-function bindElement(templateElement, destination, options){
+function bindElement(templateElement, destination, get, format){
   var attributes = templateElement[1]
-  var value = options.datasource.get(attributes._bind, options.context, {parent: options.parent, override: options.override})
-  if (attributes._format && options.formatters[attributes._format]){ // use a formatter if specified
-    var res = options.formatters[attributes._format](value, options)
+  var value = get(attributes._bind)
+  if (attributes._format){ // use a formatter if specified
+    var res = format(attributes._format, value)
     if (res){
       assignTx(res)
       res.forEach(function(element){
@@ -229,18 +223,5 @@ function merge(a,b){
   Object.keys(b).forEach(function(k){
     result[k] = b[k]
   })
-  return result
-}
-
-function mergeClone(){
-  var result = {}
-  for (var i=0;i<arguments.length;i++){
-    var obj = arguments[i]
-    if (obj){
-      Object.keys(obj).forEach(function(key){
-        result[key] = obj[key]
-      })
-    }
-  }
   return result
 }

@@ -3,20 +3,27 @@ var stripAttributes = [
   't:repeat', 't:bind', 't:when', 't:if', 't:unless', 't:format', 't:by', 't:view', 't:content', 't:context', 't:as'
 ]
 
-module.exports = function(rawView){
+module.exports = function(rawView, viewName){
   var templateCount = 1
     , stack = createKeyStack() 
     , depth = 0
     , discard = false
   
+  viewName = viewName || 't'
+
+  var result = {}
   var view = {
+    ref: viewName,
     elements: [],
     sub: [],
-    referencedViews: [],
-    templates: {},
+    subBindings: [],
+    subViews: [],
     bindings: [],
     _isView: true
   }
+  result[viewName] = view
+  result.$referencedViews = []
+  result.$root = viewName
   
   var parser = sax.parser(false, {lowercasetags: true, normalize: true})
   
@@ -28,13 +35,16 @@ module.exports = function(rawView){
     
     
     if (elementIsTemplate(node)){
+
+      setAdd(stack.get('template').subBindings, node.attributes['t:repeat'])
+
       var template = createTemplate(node)
-      template.id = templateCount++
+      template.ref = viewName + ':' + templateCount++
       
-      view.templates[template.id] = template
+      result[template.ref] = template
       
-      stack.get('template').sub.push(template.id)
-      stack.get('elements').push({template: template.id})
+      stack.get('template').sub.push(template.ref)
+      stack.get('elements').push({template: template.ref})
       
       
       // push template and elements
@@ -68,7 +78,8 @@ module.exports = function(rawView){
     })
     
     if (element[1]._view){
-      setAdd(view.referencedViews, element[1]._view.name)
+      setAdd(result.$referencedViews, element[1]._view)
+      setAdd(stack.get('template').subViews, element[1]._view)
     }
 
     
@@ -106,7 +117,7 @@ module.exports = function(rawView){
   
   parser.write(rawView).close()
   
-  return view
+  return result
 }
 
 function elementIsTemplate(node){
@@ -119,11 +130,16 @@ function elementIsFilter(node){
 
 function createTemplate(node){
   var template = {
-    query: node.attributes['t:repeat'],
-    contextAs: node.attributes['t:as'],
+    query: node.attributes['t:repeat'] || null,
     sub: [],
     bindings: [],
+    subBindings: [],
+    subViews: [],
     elements: []
+  }
+
+  if (node.attributes['t:as']){
+    template.contextAs = node.attributes['t:as']
   }
   
   return template
@@ -159,10 +175,7 @@ function createElement(node, options){
   }
   
   if (node.attributes['t:view']){
-    element[1]._view = {name: node.attributes['t:view']}
-    if (node.attributes['t:context']){
-      element[1]._view.overrideLocalContext = node.attributes['t:context']
-    }    
+    element[1]._view = node.attributes['t:view']
   }
   
   if (node.attributes['t:content']){

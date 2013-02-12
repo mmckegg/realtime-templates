@@ -1,60 +1,46 @@
-module.exports = function(root, iterator){
-  var stateStack = createStateStack()
+module.exports = function(root, iterator, initialContext){
+
+  var currentContext = initialContext
+  var contextStack = []
+
+  var currentContextNode = root
+  var contextNodeStack = []
+
   var currentNode = root.firstChild
   while (currentNode){
-    
-    stateStack.setNode(currentNode)
-    iterator(currentNode, stateStack)
-    
+
+    var pendingContext = iterator(currentNode, currentContext)
+
     if (currentNode.firstChild){
-      // walk children
+      
+      // set new context
+      if (pendingContext){
+        contextStack.push(currentContext)
+        contextNodeStack.push(currentContextNode)
+        currentContext = pendingContext
+        currentContextNode = currentNode
+      }
+
       currentNode = currentNode.firstChild
     } else {
-      // check if nextSibling - if not walk up parents
+
       while (currentNode && !currentNode.nextSibling){
         if (currentNode !== root) {
           currentNode = currentNode.parentNode
-          stateStack.popNode(currentNode)
+          
+          // check for clearContext
+          if (currentNode === currentContextNode){
+            currentContext = contextStack.pop()
+            currentContextNode = contextNodeStack.pop()
+          }
         } else {
           currentNode = null
         }
       }
+
       currentNode = currentNode && currentNode.nextSibling
     }
-    
-  }
-}
 
-function createStateStack(rootNode){
-  var currentNode = rootNode || null
-  
-  var stateStacks = {}
-  var state = {}
-  
-  var stack = {
-    set: function(key, value){
-      if (state[key]){
-        if (!stateStacks[key]){
-          stateStacks[key] = []
-        }
-        stateStacks[key].push(state[key])
-      }
-      state[key] = {node: currentNode, value: value}
-    },
-    get: function(key){
-      return state[key] && state[key].value || null
-    },
-    setNode: function(node){
-      currentNode = node
-    },
-    popNode: function(node){
-      Object.keys(state).forEach(function(key){
-        var value = state[key]
-        if (value && value.node === node){
-          state[key] = stateStacks[key] && stateStacks[key].pop() || null
-        }
-      })
-    }
   }
-  return stack
+
 }

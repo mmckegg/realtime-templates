@@ -1,3 +1,5 @@
+var mergeClone = require('./merge_clone')
+
 var selfClosing = ['meta'
  , 'img'
  , 'link'
@@ -39,13 +41,18 @@ module.exports.generateElement = function(element, entityHandler){
         result += closeTag(element[0])
         
       } else {
-        result += openTag(element[0], element[1])
+        var renderedElements = ''
+        var attributes = element[1]
         if (element[2]){
           element[2].forEach(function(e){
-            result += module.exports.generateElement(e, entityHandler) // recursively render all elements
+            if (e.parentAttributes){
+              attributes = mergeClone(attributes, e.parentAttributes)
+            } else {
+              renderedElements += module.exports.generateElement(e, entityHandler) // recursively render all elements
+            }
           })
         }
-        result += closeTag(element[0])
+        result += openTag(element[0], attributes) + renderedElements + closeTag(element[0])
       }
 
   } else if (element instanceof Object){
@@ -62,9 +69,7 @@ module.exports.generateElement = function(element, entityHandler){
       }
     }
     if (element.template){
-      if (Array.isArray(element.template)){
-        result += '<!--' + escapeHTML(element.template.join(':')) + '-->'
-      }
+      result += '<!--' + escapeHTML(element.template) + '-->'
     }
   } else {
     // text node

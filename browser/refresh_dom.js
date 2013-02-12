@@ -8,7 +8,7 @@ module.exports = function(rootNode, newElements, options){
   options = options || {}
   
   var templateHandler = options.templateHandler
-  options.templateHandler = null
+  //options.templateHandler = null
   
   var nodeStack = []
   
@@ -30,6 +30,12 @@ module.exports = function(rootNode, newElements, options){
   }
     
   function updateElement(element){
+
+    if (element.parentAttributes){
+      updateAttributes(currentNode, element.parentAttributes, {append: true})
+      return true
+    }
+
     var movement = moveToElementOrGenerate(element)
     var elementType = getElementType(element)
     
@@ -44,7 +50,9 @@ module.exports = function(rootNode, newElements, options){
     
     if (elementType === 'element'){
       // if elements was just generated we can skip this step 
-      if (!movement.generated){        
+      if (movement.generated){
+        
+      } else {        
         updateAttributes(currentNode, element[1])
         stepIn()
         updateElements(element[2])
@@ -70,7 +78,9 @@ module.exports = function(rootNode, newElements, options){
       //  console.log("TODO: Need to render templates here", movement)
       //  //TODO: render these templates now (since we don't have them)
       //}
-      templateHandler&&templateHandler(element, currentNode, movement.generated)
+      if (!movement.generated){
+        templateHandler&&templateHandler(element, currentNode, false)
+      }
     }
     
   }
@@ -106,10 +116,6 @@ module.exports = function(rootNode, newElements, options){
     var searchingFor = parseTx(Array.isArray(element) ? element[1]['data-tx'] : element._tx)
     var searchingForType = getElementType(element)
     
-    if (searchingForType === 'template' && !Array.isArray(element.template)){
-      debugger
-    }
-    
     var searching = true
     while (searching && pos){
       if (pos === rootNode || (pos.getAttribute && pos.getAttribute('data-tx') && !pos.getAttribute('data-ti'))){
@@ -139,10 +145,13 @@ module.exports = function(rootNode, newElements, options){
         } else if(pos.nodeType === 1 && pos.getAttribute('data-ti')){
           
           // template node - either skip it or move to end if matching
-          var ti = pos.getAttribute('data-ti').split(':')
-          if (searchingForType === 'template' && ti[0] == element.template[0] && ti[1] == element.template[1]){
 
-            pos = findPlaceholder(pos, element.template.join(':'))
+          var ti = pos.getAttribute('data-ti')
+          var viewName = ti.slice(0, ti.lastIndexOf(':'))
+
+          if (searchingForType === 'template' && element.template === viewName){
+
+            pos = findPlaceholder(pos, viewName)
             searching = false
           } else {
             skipped.push(pos)
@@ -151,7 +160,7 @@ module.exports = function(rootNode, newElements, options){
           
         } else if (pos.nodeType === 8) {
           
-          if (searchingForType === 'template' && element.template.join(':') == pos.data){
+          if (searchingForType === 'template' && element.template == pos.data){
             searching = false
           } else {
             skipped.push(pos)

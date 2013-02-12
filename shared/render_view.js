@@ -1,87 +1,65 @@
 var renderTemplate = require('./render_template')
+  , getTemplateContextFor = require('./template_context')
+  , refreshTemplateContext = getTemplateContextFor.refresh
+  , mergeClone = require('./merge_clone')
+
 
 module.exports = function(view, datasource, options){
   // options: formatters, includeBindingMetadata
   options = options || {}
-  
-  // resolve views if not already
-  if (options.views && !view.views){
-    view = mergeClone(view, {views: resolveSubViewsFor(view, options.views)})
-  }
-  
-  var elements = renderTemplate(view, datasource.context, {
+
+  var templateContext = getTemplateContextFor(view.$root, datasource.data, {
+    view: view,
     datasource: datasource, 
-    formatters: options.formatters, 
-    view: view, 
-    override: {},
+    formatters: options.formatters,
     includeBindingMetadata: options.includeBindingMetadata,
     entityHandler: entityHandler
   })
   
-  function entityHandler(entity, elements, params){
-    // TODO: Handle view switch correctly
+  var elements = renderTemplate(templateContext)
     
-    if (entity.template){
-      // render sub template
-      var currentView = params.viewRef && view.views[params.viewRef.name] || view
-      var template = currentView.templates[entity.template]
-      
-      var collection = datasource.get(template.query, params.context, {
-        override: params.override
-        //TODO: needs parent in here too
-      })
-      
-      if (collection && collection.forEach){
-        collection.forEach(function(item, i){
-          renderTemplate(template, item, {
-            datasource: datasource, 
-            parent: params.context,
-            override: params.override,
-            formatters: options.formatters, 
-            includeBindingMetadata: options.includeBindingMetadata,
-            view: view, 
-            ti: (params.viewRef && params.viewRef.name || '') + ':' + entity.template + ':' + i,
-            entityHandler: entityHandler
-          }).forEach(function(element){
-            elements.push(element)
-          })
-        })
-      }
-    }
-  }
-  
   if (options.includeBindingMetadata){
-    
-    
     elements.push(['script', {'type': 'application/json', id: 'realtimeBindingInfo'}, [JSON.stringify({data: datasource.data, matchers: datasource.matchers, view: view})]])
   }
-  
+
   return elements
 }
 
-function resolveSubViewsFor(view, views){
-  var resolvedViews = {}
-  view.referencedViews.forEach(function(viewName){
-    var subView = views[viewName]
-    if (subView){
-      resolvedViews[viewName] = views[viewName]
-      mergeInto(resolveSubViewsFor(subView, views), resolvedViews)
-    }
-  })
-  return resolvedViews
-}
 
-function mergeClone(){
-  var result = {}
-  for (var i=0;i<arguments.length;i++){
-    var obj = arguments[i]
-    if (obj){
-      Object.keys(obj).forEach(function(key){
-        result[key] = obj[key]
+
+function entityHandler(entity, elements, parentContext){
+  if (entity.template){
+    var template = parentContext.view[entity.template]
+    var collection = parentContext.queryValues[template.query]
+    
+    if (collection && collection.forEach){
+      collection.forEach(function(item, i){
+        var templateContext = getTemplateContextFor(entity.template, item, parentContext)
+        templateContext.index = i
+        renderTemplate(templateContext).forEach(function(element){
+          elements.push(element) 
+        })
       })
     }
+  } else if (entity.view){
+    var template = parentContext.view[entity.view]
+
+    var templateContext = mergeClone(parentContext, {
+      template: parentContext.view[entity.view],
+      contentElements: entity.viewContent,
+      index: null
+    })
+
+    renderTemplate(templateContext).forEach(function(element){
+      elements.push(element)
+    })
   }
-  return result
+}
+
+function getViewContextFor(viewName, parentContext){
+  return mergeClone(parentContext, {
+    template: parentContext.view[viewName]
+  })
 }
 
 function mergeInto(a,b){

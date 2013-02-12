@@ -42,7 +42,7 @@ module.exports = function(viewRoot, options){
   
   function loadView(name, cb){
     fs.readFile(viewPath(name), 'utf8', function(err, data){  if (err) return cb&&cb(err);
-      cb(null, parseView(data))
+      cb(null, parseView(data, name))
     })
   }
   

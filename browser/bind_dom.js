@@ -4,6 +4,10 @@ var EventEmitter = require('events').EventEmitter
   , refreshDom = require('./refresh_dom')
   , walkDom = require('./walk_dom')
   , checkNodePosition = require('./check_node_position')
+  , getTemplateContextFor = require('../shared/template_context')
+  , refreshTemplateContext = getTemplateContextFor.refresh
+  , getFromTemplateContext = getTemplateContextFor.get
+  , mergeClone = require('../shared/merge_clone')
 
 module.exports = function(view, datasource, options){
   // options: rootElement, formatters, behaviors
@@ -15,14 +19,13 @@ module.exports = function(view, datasource, options){
   binder.formatters = options.formatters
   binder.behaviors = options.behaviors || {}
   
+  // watch for changes
   datasource.on('change', function(object, changeInfo){
-    
     if (changeInfo.action === 'append'){
       refreshNodes(changeInfo.collection.$elements)
       append({collection: changeInfo.collection, item: object})
       checkNodePosition(object, changeInfo)
     }
-    
     if (changeInfo.action === 'update'){
       refreshNodes(changeInfo.collection.$elements)
       
@@ -35,70 +38,40 @@ module.exports = function(view, datasource, options){
       changeInfo.removedItems && changeInfo.removedItems.forEach(removeSourceElements)
       changeInfo.addedItems && changeInfo.addedItems.forEach(append) 
     }
-    
     if (changeInfo.action === 'remove'){
       removeSourceElements({collection: changeInfo.collection, item: object})
       refreshNodes(changeInfo.collection.$elements)
     }
-
   })
   
-  setUpBindings(binder)
+  // set up root template context
+  var rootTemplateContext = getTemplateContextFor(binder.view.$root, binder.datasource.data, {
+    datasource: binder.datasource, 
+    formatters: binder.formatters, 
+    behaviors: binder.behaviors,
+    view: binder.view, 
+    useProxies: true,
+    entityHandler: viewEntityHandler,
+    includeBindingMetadata: true
+  })
+
+  bindTemplateNode(binder.rootElement, rootTemplateContext)
+
+  // walk DOM and bind elements
+  walkDom(binder.rootElement, function(node, templateContext){
+    if (isTemplate(node)){
+      templateContext = buildTemplateContextForNode(node, templateContext)
+      bindTemplateNode(node, templateContext)
+      bindBehavior(node, templateContext)
+      return templateContext
+    } else if (isPlaceholder(node)){
+      bindTemplatePlaceholder(node, templateContext)
+    } else if (node.nodeType === 1){
+      bindBehavior(node, templateContext)
+    }
+  }, rootTemplateContext)
 
 
-  function removeSourceElements(x){
-    if (x.item && x.item.$elements){
-      var itemsToRemove = x.item.$elements.filter(function(element){
-        return element.source === x.item && x.collection === element.collection
-      })
-      if (itemsToRemove.length > 0){
-        itemsToRemove.forEach(remove)
-      }
-    }
-  }
-  
-  function checkNodeCollection(object, changeInfo){
-    if (changeInfo.originalCollection && object.$elements){
-      
-      var unhandledPlaceholders = (changeInfo.collection.$placeholderElements || []).concat()
-      
-      object.$elements.forEach(function(element){
-        if (element.source === object && element.collection === changeInfo.originalCollection){
-          
-          unbind(element)
-                              
-          if (!changeInfo.originalCollection.$placeholderElements.some(function(placeholder){
-            
-            // remove nodes in wrong location
-            if (element.template === placeholder.template && element.parentNode === placeholder.parentNode){
-              remove(element)
-              return true
-            }
-            
-          })) {
-            
-            // rebind nodes that have already been moved to correct location
-            bindNode(element, object, changeInfo.collection, element.template, element.view, binder)
-            
-            // remove the elements placeholder from unhandled
-            unhandledPlaceholders.some(function(placeholder, i){
-              if (element.template === placeholder.template && element.parentNode === placeholder.parentNode){
-                unhandledPlaceholders.splice(i, 1)
-                return true
-              }
-            })
-          }  
-        }
-      })
-      
-      unhandledPlaceholders.forEach(function(placeholder, pi){
-        // append elements to correct locations
-        appendObjectToPlaceholder(object, changeInfo.collection, placeholder)
-      })
-      
-    }
-  }
-  
   function remove(element){
     // hooks for animation
     element.removeAttribute('data-tx')
@@ -119,47 +92,36 @@ module.exports = function(view, datasource, options){
     if (!waiting) doIt()
   }
   
-  function appendObjectToPlaceholder(object, collection, placeholder){
-    var i = collection.indexOf(object)
+  function appendObjectToPlaceholder(object, placeholder){
 
-    var elements = renderTemplate(placeholder.template, object, {
-      parent: placeholder.parentObject,
-      datasource: binder.datasource, 
-      formatters: binder.formatters, 
-      override: placeholder.overrideContext,
-      view: binder.view, 
-      ti: (placeholder.viewName || '') + ':' + placeholder.template.id + ':' + i,
-      includeBindingMetadata: true
-    })
+    var template = placeholder.placeholderContext.template
 
-    var overrideContext = placeholder.overrideContext
-    if (placeholder.template.contextAs){
-      overrideContext = mergeClone(overrideContext)
-      overrideContext[placeholder.template.contextAs] = object
-    }
+    var templateContext = getTemplateContextFor(template.ref, object, parentTemplateContextFor(placeholder))
+    templateContext.index = templateContext.collection.indexOf(object)
+
+    // render interim elements
+    var elements = renderTemplate(templateContext)
 
     function behaviorHandler(n){
-      bindBehavior(n, object, binder)
+      bindBehavior(n, templateContext)
     }
     
     var appendedTemplateNodes = []
-
     var newNodes = []
     
+    // generate dom nodes from interim elements
     generateNodes(elements, {behaviorHandler: behaviorHandler, templateHandler: function(entity, element){
-      element.overrideContext = overrideContext
-      bindTemplatePlaceholder(entity, element, binder)
+      bindTemplatePlaceholder(element, templateContext)
       appendedTemplateNodes.push(element)
     }}).forEach(function(node){
       newNodes.push(node)
-      node.overrideContext = overrideContext
       appendNode(node, placeholder)
-      bindNode(node, object, collection, placeholder.template, placeholder.view, binder)
+      bindTemplateNode(node, templateContext)
     })
     
-    appendedTemplateNodes.forEach(function(element){
-      element.source.forEach && element.source.forEach(function(item){
-        appendObjectToPlaceholder(item, element.source, element)
+    appendedTemplateNodes.forEach(function(node){
+      node.placeholderContext.source.forEach && node.placeholderContext.source.forEach(function(item){
+        appendObjectToPlaceholder(item, node)
       })
     })
 
@@ -172,7 +134,7 @@ module.exports = function(view, datasource, options){
     
     if (collection.$placeholderElements){    
       collection.$placeholderElements.forEach(function(placeholder){
-        appendObjectToPlaceholder(object, collection, placeholder).forEach(function(node){
+        appendObjectToPlaceholder(object, placeholder).forEach(function(node){
           // emit new nodes
           binder.emit('append', node)
         })
@@ -193,58 +155,131 @@ module.exports = function(view, datasource, options){
     
     if (nodes){
       nodes.forEach(function(node){
-        if (node.template){
+        var templateContext = node.templateContext
 
-          var object = node.source
-          if (object.$isProxy){
-            // handle element sources that are strings/numbers rather than objects
-            object = object.value
+        if (templateContext){
+          refreshTemplateContext(templateContext)
+          if (templateContext.index != null){
+            templateContext.index = templateContext.collection.indexOf(templateContext.source)
           }
 
-          var newElements = renderTemplate(node.template, object, {
-            datasource: binder.datasource, 
-            parent: node.parentObject,
-            override: node.overrideContext,
-            formatters: binder.formatters, 
-            view: binder.view,
-            ti: node.getAttribute('data-ti'),
-            includeBindingMetadata: true
-          })
+          bindQueryReferences(node, templateContext.references)
 
+          var newElements = renderTemplate(templateContext)
 
           refreshDom(node, newElements, {
-            isEmbedded: !node.template._isView,
+            isEmbedded: !templateContext.template._isView,
             behaviorHandler: function(n){
-              bindBehavior(n, object, binder)
+              bindBehavior(n, templateContext)
             },
             templateHandler: function(entity, element, appended){
-              bindTemplatePlaceholder(entity, element, binder)
+              bindTemplatePlaceholder(element, templateContext)
+
               if (appended){
                 appendedTemplateNodes.push(element)
               }
             },
             removeHandler: function(element){
-              unbind(element, binder)
-            }
+              unbind(element)
+            },
+            referenceHandler: bindQueryReferences
           })
         }
       })
     }
     
     appendedTemplateNodes.forEach(function(element){
-      element.source.forEach(function(item){
+      var collection = element.placeholderContext.source
+      collection.forEach(function(item){
         if (!options.ignoreAppendFor || !options.ignoreAppendFor.some(function(x){
-          return x.collection === element.source && x.item === item
+          return x.collection === collection && x.item === item
         })){
-          append({collection: element.source, item: item})
+          append({collection: collection, item: item})
         }
       })
     })
   }
+
+  function checkNodeCollection(object, changeInfo){
+    //TODO: This needs some serious tidy up
+    if (changeInfo.originalCollection && object.$elements){
+      
+      var unhandledPlaceholders = (changeInfo.collection.$placeholderElements || []).concat()
+
+      object.$elements.forEach(function(element){
+        if (element.templateContext){
+          var templateContext = element.templateContext
+
+          if (templateContext.source === object && templateContext.collection === changeInfo.originalCollection){
+          
+          unbind(element)
+                              
+          if (!changeInfo.originalCollection.$placeholderElements.some(function(node){
+
+            // remove nodes in wrong location
+            if (templateContext.template === node.placeholderContext.template && element.parentNode === node.parentNode){
+              remove(element)
+              return true
+            }
+
+          })) {
+            
+            // rebind nodes that have already been moved to correct location
+            refreshTemplateContext(element.templateContext)
+            bindTemplateNode(element, element.templateContext)
+            
+            // remove the elements placeholder from unhandled
+            unhandledPlaceholders.some(function(node, i){
+              if (element.templateContext.template === node.placeholderContext.template && element.parentNode === node.parentNode){
+                unhandledPlaceholders.splice(i, 1)
+                return true
+              }
+            })
+          }  
+        }
+        }
+        
+      })
+      
+      unhandledPlaceholders.forEach(function(placeholder, pi){
+        // append elements to correct locations
+        appendObjectToPlaceholder(object, placeholder)
+      })
+      
+    }
+  }
+  
+  function removeSourceElements(options){
+    //options: item, collection
+    if (options.item && options.item.$elements){
+      var itemsToRemove = options.item.$elements.filter(function(element){
+        return element.templateContext.source === options.item && options.collection === element.templateContext.collection
+      })
+      if (itemsToRemove.length > 0){
+        itemsToRemove.forEach(remove)
+      }
+    }
+  }
+
+  
   return binder
 }
 
+function viewEntityHandler(entity, elements, parentContext){
+  if (entity.view){
+    var template = parentContext.view[entity.view]
 
+    var templateContext = mergeClone(parentContext, {
+      template: parentContext.view[entity.view],
+      contentElements: entity.viewContent,
+      index: null
+    })
+
+    renderTemplate(templateContext).forEach(function(element){
+      elements.push(element)
+    })
+  }
+}
 
 function findElementsInObject(object){
   var elements = []
@@ -275,114 +310,56 @@ function findElementsInObject(object){
   return elements
 }
 
-function bindTemplatePlaceholder(entity, element, binder){
-  var currentView = binder.view.views[entity.template[0]] || binder.view
-  var template = currentView.templates[entity.template[1]]
+function bindTemplatePlaceholder(node, templateContext){
+  var viewName = node.data
 
-  var source = binder.datasource.get(template.query, entity._context, {
-    force: [], 
-    override: element.overrideContext
-  })
-  
-  if (element.source){
-    if (element.source !== source){
-      unbind(element, binder)
+  var template = templateContext.view[viewName]
+  var source = getFromTemplateContext(template.query, templateContext)
+
+  if (node.placeholderContext){
+    if (node.placeholderContext.source !== source){
+      unbind(node)
+      //TODO: also should force all sub items to refresh at this point
     } else {
       return
     }
   }
-  
-  element.parentObject = entity._context
-  
-  addBindingMetadata({
-    element: element, 
-    item: source,
-    template: template,
-    view: currentView,
-    viewName: entity.template[0],
-    isSource: true
+
+  node.placeholderContext = {
+    source: source,
+    template: template
+  }
+
+  // link collections back to this placeholder
+  if (!source.$placeholderElements) source.$placeholderElements = []
+  addSet(source.$placeholderElements, node)
+}
+
+
+function bindTemplateNode(node, templateContext){ //(node, source, collection, template, view, binder){
+  var source = templateContext.bindingSource
+
+  if (!source.$elements) source.$elements = []
+  addSet(source.$elements, node)
+
+  node.templateContext = templateContext
+  bindQueryReferences(node, templateContext.references)
+}
+
+
+function bindQueryReferences(node, references){
+  references.forEach(function(reference){
+    if (!reference.$elements) reference.$elements = []
+    addSet(reference.$elements, node) 
   })
 }
 
-function setUpBindings(binder){
-  
-  // bind root node to context  
-  binder.rootElement.overrideContext = {}
-  bindNode(binder.rootElement, binder.datasource.data, null, binder.view, binder.view, binder)
-  
-  
-  walkDom(binder.rootElement, function(node, state){
-    if (isTemplate(node)){
-      // find the template and view
-      var ti = node.getAttribute('data-ti').split(':')
-      var currentView = ti[0] && binder.view.views[ti[0]] || binder.view
-      var currentTemplate = currentView
-      if (ti[1]){
-        currentTemplate = currentView.templates[ti[1]]
-      }
-
-      // get the source, and force it if it doesn't exit
-      var collection = binder.datasource.query(currentTemplate.query, state.get('source'), {
-        force: [], 
-        override: state.get('override')
-      }).value
-
-      var currentSource = collection[parseInt(ti[2], 10)]
-      
-      node.parentObject = state.get('source')
-      node.overrideContext = state.get('override')
-
-      if (currentSource){
-        bindNode(node, currentSource, collection, currentTemplate, currentView, binder)
-      }
-
-      if (currentTemplate.contextAs){
-        var currentOverride = mergeClone(node.overrideContext)
-        currentOverride[currentTemplate.contextAs] = currentSource
-        state.set('override', currentOverride)
-      }
-      
-      state.set('source', currentSource)
-      
-    } else if (isPlaceholder(node)){
-      // get the template then use query to find the source using the current source as context
-      var data = node.data.split(':')
-      
-      var view = data[0] && binder.view.views[data[0]] || binder.view
-      var template = data[1] && view.templates[data[1]] || view
-      
-      var source = binder.datasource.query(template.query, state.get('source'), {
-        force: [],
-        override: state.get('override')
-      }).value 
-
-      node.overrideContext = state.get('override')
-
-      addBindingMetadata({
-        element: node, 
-        item: source,
-        template: template,
-        view: view,
-        viewName: data[0],
-        isSource: true
-      })
-    }
-    
-    // if has behavior, initialize
-    if (node.nodeType === 1){
-      bindBehavior(node, state.get('source'), binder)
-    }
-    
-  })
-
-}
-
-function bindBehavior(node, source, binder){
+function bindBehavior(node, templateContext){
   var behaviorNames = node.getAttribute('data-behavior')
   if (behaviorNames){
     behaviorNames.split(' ').forEach(function(behaviorName){
-      if (binder.behaviors[behaviorName]){
-        var behaviorCallback = binder.behaviors[behaviorName](node, {object: source, datasource: binder.datasource})
+      if (templateContext.behaviors[behaviorName]){
+        var behaviorCallback = templateContext.behaviors[behaviorName](node, templateContext)
         if (behaviorCallback){
           node.behaviors = node.behaviors || []
           node.behaviors.push(behaviorCallback)
@@ -392,66 +369,55 @@ function bindBehavior(node, source, binder){
   }
 }
 
-function unbind(node, binder){
+function unbind(node){
   if (node.nodeType === 1){
-    if (node.source && node.source.$elements){
-      var index = node.source.$elements.indexOf(node)
-      if (~index){
-        node.source.$elements.splice(index, 1)
+    if (node.templateContext){
+      var sourceElements = node.templateContext.collection.$elements
+      var collectionElements = node.templateContext.source.$elements
+
+      if (sourceElements){
+        var index = sourceElements.indexOf(node)
+        if (~index){
+          sourceElements.splice(index, 1)
+        }
+      }
+      if (collectionElements){
+        var index = collectionElements.indexOf(node)
+        if (~index){
+          collectionElements.splice(index, 1)
+        }
+      }
+      for (var i=0;i<node.childNodes.length;i++){
+        unbind(node.childNodes[i])
       }
     }
-    if (node.collection && node.collection.$elements){
-      var index = node.collection.$elements.indexOf(node)
-      if (~index){
-        node.collection.$elements.splice(index, 1)
-      }
-    }
-    for (var i=0;i<node.childNodes.length;i++){
-      unbind(node.childNodes[i], binder)
-    }
+
   } else if (node.nodeType === 8){
-    if (node.source && node.source.$placeholderElements){
-      var index = node.source.$placeholderElements.indexOf(node)
-      if (~index){
-        node.source.$placeholderElements.splice(index, 1)
+    if (node.placeholderContext){
+      var placeholderElements = node.placeholderContext.source.$placeholderElements
+      if (placeholderElements){
+        var index = placeholderElements.indexOf(node)
+        if (~index){
+          placeholderElements.splice(index, 1)
+        }
       }
     }
   }
 }
 
-function bindNode(node, source, collection, template, view, binder){
-  
-  addBindingMetadata({
-    element: node, 
-    item: source,
-    collection: collection,
-    template: template,
-    view: view,
-    isSource: true //two way binding
-  })
+function buildTemplateContextForNode(node, parentTemplateContext){
+  // find the template and view
+  var ti = node.getAttribute('data-ti')
+  var splitPoint = ti.lastIndexOf(':')
 
-  var currentOverride = node.overrideContext
-  if (template.contextAs){
-    currentOverride = mergeClone(currentOverride)
-    currentOverride[template.contextAs] = source
-  }
+  var viewName = ti.slice(0, splitPoint)
+  var index = parseInt(ti.slice(splitPoint + 1), 10)
 
-  template.bindings.forEach(function(binding){
-    // only bind if is not a local query
-    
-    if (~binding.indexOf(':') || binding.lastIndexOf('.') != 0){
-      var result = binder.datasource.query(binding, source, {parent: node.parentObject, override: currentOverride})
-      result.references.forEach(function(reference){
-        if (reference != source){
-          addBindingMetadata({
-            element: node,
-            item: reference
-          })
-        }
-      })
-      
-    }
-  })
+  var template = parentTemplateContext.view[viewName]
+  var collection = getFromTemplateContext(template.query, parentTemplateContext)
+  var currentSource = collection[index]
+
+  return getTemplateContextFor(template.ref, currentSource, parentTemplateContext)
 }
 
 function isTemplate(node){
@@ -461,46 +427,17 @@ function isPlaceholder(node){
   /// this should probably be a more rigorous test
   return node.nodeType === 8
 }
-function addBindingMetadata(options){
-  // options: element, template, item, isSource
-  
-  var item = options.item || {}
-    , element = options.element
-    , template = options.template
-    , view = options.view
-    , collection = options.collection
-    
-  if (!(item instanceof Object)){
-    // for handling element sources that are strings/numbers rather than objects
-    item = getItemProxy(item, collection)
-  }
 
-  if (isPlaceholder(options.element)){
-    // is a placeholder element
-    if (!item.$placeholderElements) item.$placeholderElements = []
-    addSet(item.$placeholderElements, element)
-  } else {
-    if (!item.$elements) item.$elements = []
-    addSet(item.$elements, element)
-  }
-  
-  if (options.isSource){
-    if (Array.isArray(collection)){
-      element.collection = collection
+function parentTemplateContextFor(node){
+  var currentNode = node
+  while (currentNode){
+    currentNode = currentNode.parentNode
+    if (currentNode && currentNode.templateContext){
+      return currentNode.templateContext
     }
-    element.viewName = options.viewName
-    element.source = item
-    element.template = template
-    element.view = view
   }
 }
 
-function getItemProxy(item, collection){
-  var index = collection.indexOf(item)
-  if (!collection.$proxy) collection.$proxy = []
-  if (!collection.$proxy[index]) collection.$proxy[index] = {value: item, $isProxy: true}
-  return collection.$proxy[index]
-}
 
 function addSet(a, item){
   if (a.indexOf(item) == -1){
@@ -509,17 +446,4 @@ function addSet(a, item){
 }
 function addSetAll(a, items){
   items.forEach(addSet.bind(a))
-}
-
-function mergeClone(){
-  var result = {}
-  for (var i=0;i<arguments.length;i++){
-    var obj = arguments[i]
-    if (obj){
-      Object.keys(obj).forEach(function(key){
-        result[key] = obj[key]
-      })
-    }
-  }
-  return result
 }

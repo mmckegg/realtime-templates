@@ -13,13 +13,15 @@ var attributeProperties = {
     "contenteditable": "contentEditable"
 }
 
-module.exports = function(node, attributes){
+module.exports = function(node, attributes, options){
   var removeAttributes = []
-  for (var i = 0; i < node.attributes.length; i++) {
-    var attribute = node.attributes[i];
-    if (attribute.specified) {
-      if (attributes[attribute.name] == null || attributes[attribute.name] === ''){
-        removeAttributes.push(attribute.name)
+  if (!options || !options.append){
+    for (var i = 0; i < node.attributes.length; i++) {
+      var attribute = node.attributes[i];
+      if (attribute.specified) {
+        if (attributes[attribute.name] == null || attributes[attribute.name] === ''){
+          removeAttributes.push(attribute.name)
+        }
       }
     }
   }
