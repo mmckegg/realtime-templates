@@ -24,17 +24,16 @@ module.exports = function(rootNode, newElements, options){
   
   function updateElements(elements){
     elements.forEach(function(e){
-      updateElement(e)
-      stepForward()
+      if (e.parentAttributes){
+        updateAttributes(currentNode.parentNode, e.parentAttributes, {append: true})
+      } else {
+        updateElement(e)
+        stepForward()
+      }
     })
   }
     
   function updateElement(element){
-
-    if (element.parentAttributes){
-      updateAttributes(currentNode, element.parentAttributes, {append: true})
-      return true
-    }
 
     var movement = moveToElementOrGenerate(element)
     var elementType = getElementType(element)

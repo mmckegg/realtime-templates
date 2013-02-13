@@ -130,7 +130,7 @@ function appendText(text, elements){
 
 function appendPlaceholderElements(placeholder, elements){
   elements.push({
-    parentAttributes: placeholder[1]
+    parentAttributes: attributesWithoutTx(placeholder[1])
   })
   
   placeholder[2].forEach(function(element){
@@ -149,6 +149,16 @@ function appendPlaceholderElements(placeholder, elements){
       elements.push(element)
     }
   })
+}
+
+function attributesWithoutTx(attributes){
+  var result = {}
+  Object.keys(attributes).forEach(function(k){
+    if (k !== 'data-tx'){
+      result[k] = attributes[k]
+    }
+  })
+  return result
 }
 
 function queryFilter(filter, get){
