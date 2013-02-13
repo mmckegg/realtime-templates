@@ -171,7 +171,7 @@ function bindAttributes(attributes, destination, get){
   attributes._bindAttributes && Object.keys(attributes._bindAttributes).forEach(function(key){
     var value = get(attributes._bindAttributes[key])
     if (value != null){
-      destination[1][key] = value.toString()
+      destination[1][key] = value
     }
   })
   

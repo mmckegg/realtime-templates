@@ -10,6 +10,9 @@ var attributeProperties = {
     "colspan": "colSpan",
     "usemap": "useMap",
     "frameborder": "frameBorder",
+    "contenteditable": "contentEditable",
+    "checked": 'checked',
+    "disabled": 'disabled',
     "contenteditable": "contentEditable"
 }
 

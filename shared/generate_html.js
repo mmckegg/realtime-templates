@@ -10,6 +10,10 @@ var selfClosing = ['meta'
  , 'br'
  , 'hr']
 
+var booleanAttributes = [
+  'checked', 'disabled', 'contenteditable'
+]
+
 
 module.exports = function(elements, entityHandler){
   var result = ""
@@ -98,7 +102,13 @@ function openTag(name, attributes, selfClose){
   
   Object.keys(attributes).forEach(function(key){
     if (key.charAt !== '_'){
-      result += (' ' + key + '="' + escapeAttribute(attributes[key]) + '"' )
+      if (~booleanAttributes.indexOf(key)){
+        if (attributes[key]){
+          result += ' ' + key
+        }
+      } else {
+        result += (' ' + key + '="' + escapeAttribute(attributes[key]) + '"' )
+      }
     }
   })
   
