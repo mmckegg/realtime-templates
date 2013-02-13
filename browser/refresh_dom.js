@@ -70,7 +70,11 @@ module.exports = function(rootNode, newElements, options){
     } else if (elementType === 'text'){
       if (!movement.generated){
         if (currentNode.data !== element.text){
-          currentNode.data = element.text
+          if (element.text != null){
+            currentNode.data = element.text
+          } else {
+            currentNode.data = ''
+          }
         }
       }
     } else if (elementType === 'template'){
