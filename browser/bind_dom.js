@@ -417,7 +417,10 @@ function buildTemplateContextForNode(node, parentTemplateContext){
   var collection = getFromTemplateContext(template.query, parentTemplateContext)
   var currentSource = collection[index]
 
-  return getTemplateContextFor(template.ref, currentSource, parentTemplateContext)
+  var context = getTemplateContextFor(template.ref, currentSource, parentTemplateContext)
+  context.index = index
+  
+  return context
 }
 
 function isTemplate(node){
