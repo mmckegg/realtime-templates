@@ -162,6 +162,7 @@ An extension of the if system. Much like a `switch` or `case` statement. Specify
 For binding to arrays and creating repeating content. The attribute value is queried and the element is duplicated for every item in the returned array.
 
 For this [JSON Context](http://github.com/mmckegg/json-context) datasource:
+
 ```js
 var datasource = jsonContext({
   posts: [
@@ -171,14 +172,18 @@ var datasource = jsonContext({
   ]
 })
 ```
+
 And this template:
+
 ```html
 <div class='post' t:repeat='posts' t:bind:data-id='.id'>
   <h1 t:bind='.title'>Will replaced with the value of title</h1>
   <div t:bind='.body'>Will replaced with the value of body</div>
 </div>
 ```
+
 We would get:
+
 ```html
 <div class='post' data-id='1'>
   <h1>Post 1</h1>
@@ -194,6 +199,16 @@ We would get:
 </div>
 ```
 
+If required (e.g. nesting repeaters) you can use `t:as` to assign the context a name and reference it by that instead of '.'
+
+```html
+<div class='post' t:repeat='posts' t:as='post' t:bind:data-id='.id'>
+  <div t:repeat='something_else'>
+    Can still access the post!
+    <span t:bind='post.name' />
+  </div>
+</div>
+```
 ### Attribute: `t:view`
 
 Specify a sub-view to render as the content of the element. It must be in the current viewPath in order to be found.
@@ -205,6 +220,7 @@ If the element had content specified, it will be overrided with the content of t
 This attribute excepts no value and is used on **master views** to denote where to insert the actual view content.
 
 Say we have this master layout:
+
 ```html
 <!--/views/layout.master.html-->
 <html>
@@ -217,13 +233,16 @@ Say we have this master layout:
   </body>
 </html>
 ```
+
 And this view:
+
 ```html
 <h2>Page title</h2>
 <div>I am the page content</div>
 ```
 
 We would get:
+
 ```html
 <!--/views/layout.master.html-->
 <html>
@@ -245,6 +264,7 @@ We would get:
 This attribute is used to specify a custom renderer to use for rendering the value of `t:bind`. It could be used to apply Markdown or Textile to the original text. 
 
 Formatters are functions that except a value parameter and return an array of elements in RT format. The RT format looks something like this:
+
 ```js
 // [tag, attributes, sub-elements]
 ['div', {id: 'content'}, [
@@ -294,6 +314,7 @@ With JSON Context, rather than updating objects directly, we use change streams 
 We also need a way to identify each object that will need to be changed. Since we made the matchers correspond to our database objects, we can use the unique ID provided by the database.
 
 Say we have the following context:
+
 ```js
 {
   posts: [
@@ -312,6 +333,7 @@ Say we have the following context:
 
 
 If we wanted to be able to add comments in realtime, we would add the following matcher:
+
 ```js
 {
   filter:{
@@ -338,7 +360,6 @@ window.context = jsonContext(meta.data, {matchers: meta.matchers})
 Now we just need to subscribe to the server's change feed. The server will send us the new object, and the matchers are used to figure out if we care and where to update if we do.
 
 ```js
-
   // client-side require using browserify
   var shoe = require('shoe')
   var split = require('split')
@@ -347,10 +368,10 @@ Now we just need to subscribe to the server's change feed. The server will send 
     // push the changed objects coming down the wire directly into the context
     window.context.pushChange(JSON.parse(line), {source: 'server'})
   })
-
 ```
 
 Here is the view that we will use:
+
 ```html
 <div t:repeat='posts'>
   <h2 t:bind='.title'></h2>
@@ -366,6 +387,7 @@ Here is the view that we will use:
 ```
 
 Let's bind it to the datasource
+
 ```js
 // client-side require using browserify
 var realtimeTemplates = require('realtime-templates')
@@ -440,7 +462,7 @@ If you want to **append** a new object, just push it directly. As long as it has
 
 `data-behaviors` attribute
 
-## Preserving attributeson Realtime Nodes (element.preserveAttributes)
+## Preserving attributes on Realtime Nodes (element.preserveAttributes)
 
 If you would like to add a class (or change any other attribute on a DOM node) at runtime using Javascript code rather than via binding, you'll need to set the `preserveAttributes` option to an **array** containing the attribute names you wish the realtime updating to ignore.
 
