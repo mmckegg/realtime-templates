@@ -217,7 +217,7 @@ If the element had content specified, it will be overrided with the content of t
 
 ### Attribute: `t:content`
 
-This attribute excepts no value and is used on **master views** to denote where to insert the actual view content.
+This attribute accepts no value and is used on **master views** to denote where to insert the actual view content.
 
 Say we have this master layout:
 
@@ -237,6 +237,7 @@ Say we have this master layout:
 And this view:
 
 ```html
+<!--/views/content.html-->
 <h2>Page title</h2>
 <div>I am the page content</div>
 ```
@@ -244,7 +245,6 @@ And this view:
 We would get:
 
 ```html
-<!--/views/layout.master.html-->
 <html>
   <head>
     <title>My Blog</title>
