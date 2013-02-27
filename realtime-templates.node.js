@@ -13,82 +13,89 @@ module.exports = function(viewRoot, options){
   var renderer = {}
   
   var viewCache = {}
+  var rawViewCache = {}
 
   renderer.render = function(viewName, datasource, cb){
     var startTime = process.hrtime()
-    
-    if (viewCache[viewName]){
-      // read from cache
-      var elements = renderView(viewCache[viewName], datasource, options)
+
+    getResolvedView(viewName, function(err, view){
+      var elements = renderView(view, datasource, options)
       cb(null, generateHtml(elements), {time: process.hrtime(startTime)})
+    })
+
+  }
+  
+  function viewPath(viewName){
+    return path.join(viewRoot, viewName + '.html')
+  }
+  
+  
+  function loadView(viewName, cb){
+    fs.readFile(viewPath(viewName), 'utf8', function(err, data){  if (err) return cb&&cb(err);
+      cb(null, parseView(data, viewName))
+    })
+  }
+
+  function getRawView(viewName, cb){
+    if (rawViewCache[viewName]){
+      cb(null, viewCache[viewName]) 
     } else {
       loadView(viewName, function(err, view){                  if(err)return cb&&cb(err);
-        assignMasterAndSubViews(view, function(err){          if(err)return cb&&cb(err);
-          // cache view if enabled
-          if (options.useCache){
-            viewCache[viewName] = view
-          }
-          var elements = renderView(view, datasource, options)
-          cb(null, generateHtml(elements), {time: process.hrtime(startTime)})
-        })
+        if (options.useCache){
+          rawViewCache[viewName] = view
+        }
+        cb(err, view)
       })
     }
   }
-  
-  function viewPath(view){
-    return path.join(viewRoot, view + '.html')
+
+  function getResolvedView(viewName, cb){
+    if (viewCache[viewName]){
+      cb(null, viewCache[viewName]) 
+    } else {
+      getRawView(viewName, function(err, view){               if(err)return cb&&cb(err);
+        var resolvedView = {$referencedViews: view.$referencedViews, $root: viewName}
+        resolveAndAppendViews(view, resolvedView, function(err){    if(err)return cb&&cb(err);
+          assignMaster(resolvedView, function(err){       if(err)return cb&&cb(err);
+            if (options.useCache){
+              rawViewCache[viewName] = resolvedView
+            }
+            cb(null, resolvedView)
+          })
+        })
+
+      })
+    }
+  }
+
+  function resolveAndAppendViews(view, result, cb){
+    appendAllStandardAttributesTo(view, result)
+
+    asyncEach(view.$referencedViews, function(k, next){
+      getRawView(k, function(err, view){                    if(err)return next&&next(err);
+        resolveAndAppendViews(view, result, next)
+      })
+    }, cb)
   }
   
-  
-  function loadView(name, cb){
-    fs.readFile(viewPath(name), 'utf8', function(err, data){  if (err) return cb&&cb(err);
-      cb(null, parseView(data, name))
-    })
-  }
-  
-  function assignMasterAndSubViews(view, cb){
+  function assignMaster(target, cb){
     //TODO: wrap with master
     if (masterName){
-      view.referencedViews.push(masterName + '.master')
+
+      var viewName = masterName + '.master'
+      var rootTemplate = target[target.$root]
+
       // wrap the view elements in a master placeholder
-      var placeholder = ['placeholder', {_view: {name: masterName + '.master'}}, view.elements]
-      view.elements = [placeholder]
+      var placeholder = ['t:placeholder', {_view: viewName}, rootTemplate.elements]
+      rootTemplate.elements = [placeholder]
+
+      getRawView(viewName, function(err, view){               if(err)return cb&&cb(err);
+        resolveAndAppendViews(view, target, cb)
+      })
+
+    } else {
+      cb(null)
     }
-    view.views = {}
-    resolveSubViews(view, function(err){
-      cb(err, view)
-    })
-  }
-  
-  function resolveSubViews(view, viewList, cb){
-    if (typeof(viewList) === 'function'){
-      cb = viewList
-      viewList = null
-    }
-    viewList = viewList || view.views || {}
-    view.referencedViews && asyncEach(view.referencedViews, function(item, next){
-      if (viewList[item]){
-        next()
-      } else {
-        loadView(item, function(err, subView){
-          if (err) return next(err);
-          subView.name = item
-          viewList[item] = subView
-          resolveSubViews(subView, viewList, next)
-        })
-      }
-    }, function(err){
-      if (err) return cb&&cb(err);
-      cb()
-    })
-  }
-  
-  function getMaster(cb){
-    fs.readFile(masterPath, 'utf8', function(err, data){
-      if (!err){
-        cb(null, data)
-      } else { cb&&cb(err) }
-    })
   }
   
   return renderer
@@ -100,7 +107,13 @@ module.exports.parseView = parseView
 module.exports.generateHtml = generateHtml
 module.exports.parseView = require('./shared/render_template')
 
-
+function appendAllStandardAttributesTo(original, destination){
+  Object.keys(original).forEach(function(key){
+    if (key.charAt(0) !== '$'){
+      destination[key] = original[key]
+    }
+  })
+}
 
 function asyncEach(collection, iterator, callback){
   var id = -1
