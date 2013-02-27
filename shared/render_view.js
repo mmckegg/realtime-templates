@@ -42,11 +42,13 @@ function entityHandler(entity, elements, parentContext){
       })
     }
   } else if (entity.view){
+
+
     var template = parentContext.view[entity.view]
 
     var templateContext = mergeClone(parentContext, {
       template: parentContext.view[entity.view],
-      contentElements: entity.viewContent,
+      contentElements: entity.elements,
       index: null
     })
 

@@ -178,7 +178,7 @@ function createElement(node, options){
     element[1]._view = node.attributes['t:view']
   }
   
-  if (node.attributes['t:content']){
+  if (node.attributes.hasOwnProperty('t:content')){
     element[1]._content = true
   }
   
