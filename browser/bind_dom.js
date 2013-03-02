@@ -314,25 +314,27 @@ function bindTemplatePlaceholder(node, templateContext){
   var viewName = node.data
 
   var template = templateContext.view[viewName]
-  var source = getFromTemplateContext(template.query, templateContext)
+  if (template){
+    var source = getFromTemplateContext(template.query, templateContext)
 
-  if (node.placeholderContext){
-    if (node.placeholderContext.source !== source){
-      unbind(node)
-      //TODO: also should force all sub items to refresh at this point
-    } else {
-      return
+    if (node.placeholderContext){
+      if (node.placeholderContext.source !== source){
+        unbind(node)
+        //TODO: also should force all sub items to refresh at this point
+      } else {
+        return
+      }
     }
-  }
 
-  node.placeholderContext = {
-    source: source,
-    template: template
-  }
+    node.placeholderContext = {
+      source: source,
+      template: template
+    }
 
-  // link collections back to this placeholder
-  if (!source.$placeholderElements) source.$placeholderElements = []
-  addSet(source.$placeholderElements, node)
+    // link collections back to this placeholder
+    if (!source.$placeholderElements) source.$placeholderElements = []
+    addSet(source.$placeholderElements, node)
+  }
 }
 
 

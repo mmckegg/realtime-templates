@@ -30,7 +30,7 @@ module.exports = function(root, iterator, initialContext){
           
           // check for clearContext
           if (currentNode === currentContextNode){
-            currentContext = contextStack.pop()
+            currentContext = contextStack.pop() || initialContext
             currentContextNode = contextNodeStack.pop()
           }
         } else {
