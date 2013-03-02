@@ -336,8 +336,8 @@ If we wanted to be able to add comments in realtime, we would add the following 
 
 ```js
 {
-  filter:{
-    match: {type: 'comment'}, // we apply the rule if the incoming object has the type 'comment'
+  match: {type: 'comment'}, // we apply the rule if the incoming object has the type 'comment'
+  allow: {
     append: true
   },
   item: 'comments[][id={.id}]', // a JSON Query that finds the comment so it can be updated
