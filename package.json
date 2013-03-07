@@ -18,7 +18,7 @@
     "json-filter": "*"
   },
   "peerDependencies": {
-    "json-context": "~0.1.1"
+    "json-context": "~0.2.0"
   },
   "devDependencies": {},
   "optionalDependencies": {},
