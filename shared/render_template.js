@@ -1,4 +1,4 @@
-var checkFilter = require('./check_filter')
+var checkFilter = require('json-filter')
 module.exports = function(templateContext){
   // templateContext: source, template, datasource, formatters, view, entityHandler
   var viewRefStack = []

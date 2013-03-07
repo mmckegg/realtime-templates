@@ -14,7 +14,8 @@
     "test": "tap test/*.js"
   },
   "dependencies": {
-    "sax": "*"
+    "sax": "*",
+    "json-filter": "*"
   },
   "peerDependencies": {
     "json-context": "~0.1.1"
