@@ -7,22 +7,15 @@ var self = module.exports = function(elements, options){
   
   var result = []
   elements.forEach(function(element){
-    if (element.parentAttributes){
-      // append placeholder element's attributes to parent node
-      if (options && options.parentNode){
-        updateAttributes(options.parentNode, element.parentAttributes, {append: true})
-      }
-    } else {
-      // recursively render all elements
-      var node = self.generate(element, options)
-      if (node){
-        if (Array.isArray(node)){
-          node.forEach(function(n){
-            result.push(n)
-          })
-        } else {
-          result.push(node)
-        }
+    // recursively render all elements
+    var node = self.generate(element, options)
+    if (node){
+      if (Array.isArray(node)){
+        node.forEach(function(n){
+          result.push(n)
+        })
+      } else {
+        result.push(node)
       }
     }
   })
@@ -30,7 +23,6 @@ var self = module.exports = function(elements, options){
 }
 
 self.generate = function(element, options){
-  
   if (Array.isArray(element)){
     
     // standard element
@@ -41,7 +33,8 @@ self.generate = function(element, options){
     if (element[2]){
       element[2].forEach(function(e){
         // recursively render all elements
-        var subNodes = self.generate(e, mergeClone(options, {parentNode: element}))
+
+        var subNodes = self.generate(e, mergeClone(options, {parentNode: newNode}))
         if (Array.isArray(subNodes)){
           subNodes.forEach(function(node){
             newNode.appendChild(node)
@@ -65,6 +58,12 @@ self.generate = function(element, options){
     if (element.hasOwnProperty('text')){
       return document.createTextNode(element.text || '')
     } 
+
+    // handle parent attributes from placeholders
+    if (element.parentAttributes && options && options.parentNode){
+      updateAttributes(options.parentNode, element.parentAttributes, {append: true})
+    }
+
     if (element.comment){
       return document.createComment(element.comment.toString())
     } else {
