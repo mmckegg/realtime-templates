@@ -50,23 +50,23 @@ What allows the system to update in realtime is that we send the **full datasour
 ```js
 var http = require('http')
 
-var realtimeTemplates = require('realtime-templates')
-var jsonContext = require('json-context')
+var Renderer = require('realtime-templates')
+var JsonContext = require('json-context')
 
 var viewPath = path.join(__dirname, '/views')
 
 // create a renderer - pass in the path containing the HTML views and any options
-var renderer = realtimeTemplates(viewPath, {includeBindingMetadata: true})
+var renderer = Renderer(viewPath, {includeBindingMetadata: true})
 
 http.createServer(function (req, res) {
   res.writeHead(200, {'Content-Type': 'text/html'});
   
   // get the data from the database (or in this case, hard coded JSON)
-  var datasource = jsonContext({
+  var datasource = JsonContext({data: {
     title: "Matt's blog",
     element_id: "value",
     type: 'example'
-  })
+  }})
   
   // render the page and return the result
   renderer.render('page', datasource, function(err, result){
@@ -76,7 +76,7 @@ http.createServer(function (req, res) {
 }).listen(1337, '127.0.0.1');
 ```
 
-### realtimeTemplates(viewPath, options)
+### require('realtime-templates')(viewPath, options)
 
 The easy way to use Realtime Templates. Pass in the path to a directory containing your HTML views and it returns a template **renderer**.
 
@@ -164,7 +164,7 @@ For binding to arrays and creating repeating content. The attribute value is que
 For this [JSON Context](http://github.com/mmckegg/json-context) datasource:
 
 ```js
-var datasource = jsonContext({
+var datasource = JsonContext({
   posts: [
     {id: 1, title: "Post 1", body: "Here is the body content"},
     {id: 2, title: "Post 2", body: "Here is some more body content"},
@@ -293,7 +293,7 @@ function formatMultiLine(input){
   return result
 }
 
-var renderer = realtimeTemplates(viewPath, {
+var renderer = Renderer(viewPath, {
   includeBindingMetadata: true, 
   formatters: {
     multiline: formatMultiLine //specify the function we created above as a formatter
@@ -399,7 +399,7 @@ Now whenever comments are added on the server, they will be updated in realtime 
 
 The next step is to allow the user to add comments to the page and have these pushed back to the server.
 
-### realtimeTemplates.bind(view, datasource, options)
+### require('realtime-templates').bind(view, datasource, options)
 
 This must be run in the browser in order for the page to work in realtime. 
 
@@ -439,24 +439,7 @@ binder.on('beforeRemove', function(node, wait){
 
 ### context.pushChange(object, changeInfo)
 
-**object**: The complete object that has been changed, created, or deleted. 
-
-**changeInfo** options:
-  - **source**: either `server` or `user`. If server the change will not be validated and will be applied to the context regardless. If user, the matcher must explicity allow the type of change ('update', 'append' or 'remove').
-  
-When a changed object comes down the stream from the server, call `context.pushChange(changedObject, {source: 'server'})` and the change will be merged into the context (as long as there is a corresponding matcher). 
-
-If you want to **update** an object in the browser with a form for example, you must first obtain a copy of the object you wish to change. You can use `context.obtain(query)` to do this, or clone an object using `jsonContext.obtain(element.source)`. Once you have this copy, make the desired changes, then push back in using `context.pushChange(changedObject, {source: 'user'})`. The context will check the matcher to ensure the change they have requested is allowed.
-
-To **delete** an object, obtain in the same way as changing, but add the key `_deleted` with the value `true`.
-
-```js
-var object = window.context.obtain(['comments[][id=?]', 1]) // get a copy of the object
-object._deleted = true
-window.context.pushChange(object, {source: 'user'})
-```
-
-If you want to **append** a new object, just push it directly. As long as it has attributes corresponding to the matcher, everything should just work.
+See [JSON Context: pushChange](https://github.com/mmckegg/json-context#datasourcepushchangeobject-changeinfo) for full details.
 
 ## Extending with behaviors
 
