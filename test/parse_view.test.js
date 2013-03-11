@@ -6,15 +6,18 @@ test("Parse standard elements", function(t){
   var view = "<div>Contents <strong>Some sub content</strong></div>"
   var expected = { 
     'main': {
+      ref: 'main',
       elements: [[ 
         'div',{},[ 'Contents ', [ 'strong', {}, [ 'Some sub content' ] ] ] 
       ]],
       sub: [],
+      subViews: [],
       subBindings: [],
-      referencedViews: [],
       bindings: [],
       _isView: true 
-    }
+    },
+    $referencedViews: [],
+    $root: 'main'
   }
   t.deepEqual(parseView(view, 'main'), expected)
   t.end()
@@ -25,13 +28,14 @@ test("Parse standard elements", function(t){
   var view = "<div>Contents <span t:repeat='query'><span t:bind='.test:cat'/></span></div>"
   var expected = { 
     'main': {
+      ref: 'main',
       elements: [ 
         ['div',{},[ 'Contents ', {template: 'main:1'} ] ]
       ],
       sub: ['main:1'],
-      referencedViews: [],
       bindings: [],
       subBindings: ['query'],
+      subViews: [],
       _isView: true 
     },
     'main:1': {
@@ -43,9 +47,12 @@ test("Parse standard elements", function(t){
         ] ]
       ],
       sub: [],
+      subViews: [],
       subBindings: [],
       bindings: ['.test:cat']
-    }
+    },
+    $referencedViews: [],
+    $root: 'main'
   }
 
   console.error(util.inspect(parseView(view, 'main'), false, 10))
@@ -62,20 +69,23 @@ test("Parse standard elements with inner view", function(t){
   
   var expected = {
     'main': {
+      ref: 'main',
       elements:
       [
         ['div',{},[
           'Contents ',['strong', {},['Some sub content']],' ',['placeholder',{
-            _view: {name: 'inline_item'}
+            _view: 'inline_item'
           },[]]]
         ]
       ],
       sub: [],
-      referencedViews: ['inline_item'],
+      subViews: ['inline_item'],
       bindings: [],
       subBindings: [],
       _isView: true
-    }
+    },
+    $referencedViews: ['inline_item'],
+    $root: 'main'
   }
   t.deepEqual(parseView(view, 'main'), expected)
   t.end()
