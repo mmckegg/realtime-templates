@@ -27,10 +27,12 @@ module.exports = function(view, datasource, options){
       checkNodePosition(object, changeInfo)
     }
     if (changeInfo.action === 'update'){
-      refreshNodes(changeInfo.collection.$elements)
-      
-      checkNodeCollection(object, changeInfo)
-      checkNodePosition(object, changeInfo)
+
+      if (changeInfo.collection){
+        refreshNodes(changeInfo.collection.$elements)
+        checkNodeCollection(object, changeInfo)
+        checkNodePosition(object, changeInfo)
+      }
       
       refreshNodes(findElementsInObject(object), {ignoreAppendFor: changeInfo.addedItems})
       
