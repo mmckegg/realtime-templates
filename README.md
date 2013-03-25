@@ -39,13 +39,13 @@ Views are written in pure HTML markup with a few extra attributes to make things
 </html>
 ```
 
-In the example above we have a standard html page with one extra attribute `t:bind`. 
+In the example above we have a standard html page with one extra attribute [`t:bind`](https://github.com/mmckegg/realtime-templates#attribute-trepeat). 
 
 When this view is rendered, it queries the datasource and replaces any existing content with the found value. The final page that gets to the user has no special t:bind type tags - instead just the final document. 
 
 What allows the system to update in realtime is that we send the **full datasource** and **parsed view** (the HTML is parsed into JSON) to the browser along with the rendered page. A little bit of extra meta data is added to the elements so that the system can tell what is what. It's also smart enough to ignore (and leave alone) any extra elements that are added at runtime - e.g. editors / menus / pop-ups.
 
-## Using on the server in Node.js
+## Server API
 
 ```js
 var http = require('http')
@@ -81,8 +81,9 @@ http.createServer(function (req, res) {
 The easy way to use Realtime Templates. Pass in the path to a directory containing your HTML views and it returns a template **renderer**.
 
 Options:
+
   - **includeBindingData** (defaults `false`): Whether or not to include `data-tx` and `data-ti` attributes on the page to allow realtime updating, and also whether to include the datasource and used views in a script tag at the bottom.
-  - **formatters**: Accepts a hash containing named functions representing a custom method of rendering the html from the original value. See Attribute: `t:format`.
+  - **formatters**: Accepts a hash containing named functions representing a custom method of rendering the html from the original value. See Attribute: [`t:format`](https://github.com/mmckegg/realtime-templates#attribute-tformat).
   - **masterName**: Pass in the name of a view to use as the overall master layout for all rendered views. Masters must be saved as `<masterName>.master.html`. See Attribute: `t:content`
 
 ### renderer.render(viewName, datasource, callback)
@@ -99,13 +100,13 @@ For custom use - pass in a raw HTML template string and it will be parsed into J
 
 ### realtimeTemplates.renderView(view, datasource, options)
 
-Pass in a parsed JSON view and a datasource and the function will return an array of RT **elements**. See Attribute: `t:format`.
+Pass in a parsed JSON view and a datasource and the function will return an array of RT **elements**. See [Attribute: `t:format`](https://github.com/mmckegg/realtime-templates#attribute-tformat).
 
 ### realtimeTemplates.generateHtml(elements)
 
 Pass in an array of RT elements and the function returns HTML.
 
-## Binding to a datasource
+## The Templates (data binding, etc)
 
 This module can be used with any datasource object that responds to `query` and `get` and emits `change` events. 
 
@@ -261,7 +262,7 @@ We would get:
 
 ### Attribute: `t:format`
 
-This attribute is used to specify a custom renderer to use for rendering the value of `t:bind`. It could be used to apply Markdown or Textile to the original text. 
+This attribute is used to specify a custom renderer to use for rendering the value of [`t:bind`](https://github.com/mmckegg/realtime-templates#attribute-tbind). It could be used to apply Markdown or Textile to the original text. 
 
 Formatters are functions that except a value parameter and return an array of elements in RT format. The RT format looks something like this:
 
@@ -349,25 +350,23 @@ When the `includeBindingMetadata` option is enabled, the renderer automatically 
 
 ```js
 // client-side require using browserify
-var jsonContext = require('json-context')
+var JsonContext = require('json-context')
 
 var bindingElement = document.getElementById('realtimeBindingInfo')
 var meta = JSON.parse(bindingElement.innerHTML)
 
-window.context = jsonContext(meta.data, {matchers: meta.matchers})
+window.context = JsonContext({data: meta.data, matchers: meta.matchers})
 ```
 
 Now we just need to subscribe to the server's change feed. The server will send us the new object, and the matchers are used to figure out if we care and where to update if we do.
 
 ```js
   // client-side require using browserify
-  var shoe = require('shoe')
-  var split = require('split')
-  
-  shoe('/changes').pipe(split()).on('data', function(line){
-    // push the changed objects coming down the wire directly into the context
-    window.context.pushChange(JSON.parse(line), {source: 'server'})
-  })
+  var Shoe = require('shoe')
+
+  var clientStream = window.context.changeStream({verifiedChange: true})
+  var serverStream = Shoe('/changes')
+  serverStream.pipe(stream).pipe(serverStrean)
 ```
 
 Here is the view that we will use:
@@ -399,6 +398,8 @@ Now whenever comments are added on the server, they will be updated in realtime 
 
 The next step is to allow the user to add comments to the page and have these pushed back to the server.
 
+## Client API
+
 ### require('realtime-templates').bind(view, datasource, options)
 
 This must be run in the browser in order for the page to work in realtime. 
@@ -408,6 +409,7 @@ This must be run in the browser in order for the page to work in realtime.
 **datasource**: The reconstituted datasource object based on the data included with `realtimeBindingInfo`.`data`
 
 Options:
+
   - **rootElement** (defaults `document`): A DOM element that corresponds to the root node in the view.
   - **formatters**: Should be hooked up to the same list of formatters as it's server side counterpart. See Attribute: t:format
   - **behaviors**: An object containing a list of functions to be run when is extended with `data-behavior`. See Extending with behaviors
