@@ -88,6 +88,7 @@ module.exports = function(viewRoot, options){
       // wrap the view elements in a master placeholder
       var placeholder = ['t:placeholder', {_view: viewName}, rootTemplate.elements]
       rootTemplate.elements = [placeholder]
+      rootTemplate.subViews.push(viewName)
 
       getRawView(viewName, function(err, view){               if(err)return cb&&cb(err);
         resolveAndAppendViews(view, target, cb)
