@@ -91,7 +91,7 @@ function isSelfClosing(name){
 }
 
 function escapeAttribute(attribute){
-  return attribute || attribute === 0 ? attribute.toString().replace(/"/g, '&quot;') : '';
+  return attribute || attribute === 0 ? escapeHTML(attribute.toString().replace(/"/g, '&quot;')) : '';
 }
 function escapeHTML(s) {
   return s ? s.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
