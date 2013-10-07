@@ -25,7 +25,7 @@ module.exports = function(rootNode, newElements, options){
   function updateElements(elements){
     elements.forEach(function(e){
       if (e.parentAttributes){
-        updateAttributes(currentNode.parentNode, e.parentAttributes, {append: true})
+        currentNode && updateAttributes(currentNode.parentNode, e.parentAttributes, {append: true})
       } else {
         updateElement(e)
         stepForward()
