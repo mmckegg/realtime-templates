@@ -18,9 +18,10 @@ module.exports = function(templateName, object, options){
 
     template: options.view[templateName],
     parent: options.parent || options.source,
+    lastSource: options.source,
     source: object,
 
-    references: [],
+    references: []
   }
   
   if (options.queryValues && context.template){
