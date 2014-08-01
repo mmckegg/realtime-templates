@@ -3,47 +3,13 @@ Realtime Templates
 
 Render views on the server (using standard HTML markup) that the browser can update in realtime when the original data changes.
 
-## Why?
+## Status: Deprecated
 
-Web pages are increasingly becoming much more than static documents - they display complex, constantly changing information and often allow the user to update that information directly. 
+Expect no further updates.
 
-Most templating systems were designed for rendering pages on the server then sending this to the browser to display. This is fast, and efficient allowing the web to work the way it always worked. However anything that we want to work in realtime must be written twice - the code that generates it on the server and the code that knows how to update it in the browser. This is time consuming and error prone.
+The ideas from this module have been extracted out into more pieces that work a lot better. See [rincewind](http://github.com/mmckegg/rincewind) for a similar templating language and [become](http://github.com) for smooth html-based DOM updates.
 
-A more recent concept is to do all of the rendering in the browser itself (popular with single page apps). Essentially the server becomes little more than a database. These systems have a number of problems such as search engine accessibility, initial load speed, and bookmarking. In my opinion this is little more than a hack and completely goes against the original design of the web and browsers. 
-
-Over time fully client side rendering will improve, but this module attempts to get the best of both worlds right now.
-
-## Installation
-
-```shell
-$ npm install realtime-templates
-```
-
-## The Views
-
-Views are written in pure HTML markup with a few extra attributes to make things work. 
-
-```html
-<!--/views/page.html-->
-<html>
-  <head>
-    <title t:bind='title'>My Blog</title>
-  </head>
-  <body>
-    <h1 t:bind='title'>My Blog</h1>
-    <h2>Page Title</h2>
-    <div>
-      <p>I am the page content</p>
-    </div>
-  </body>
-</html>
-```
-
-In the example above we have a standard html page with one extra attribute [`t:bind`](https://github.com/mmckegg/realtime-templates#attribute-trepeat). 
-
-When this view is rendered, it queries the datasource and replaces any existing content with the found value. The final page that gets to the user has no special t:bind type tags - instead just the final document. 
-
-What allows the system to update in realtime is that we send the **full datasource** and **parsed view** (the HTML is parsed into JSON) to the browser along with the rendered page. A little bit of extra meta data is added to the elements so that the system can tell what is what. It's also smart enough to ignore (and leave alone) any extra elements that are added at runtime - e.g. editors / menus / pop-ups.
+Another project tackling a similar problem is [mercury](https://github.com/raynos/mercury) by Raynos.
 
 ## Server API
 
